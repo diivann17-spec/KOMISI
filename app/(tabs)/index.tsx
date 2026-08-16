@@ -1,15 +1,16 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-    RefreshControl,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import DocumentCard from '../../components/DocumentCard';
 import EmptyState from '../../components/EmptyState';
@@ -19,8 +20,6 @@ import { DAFTAR_KOMISI } from '../../constants/data';
 import { Colors, FontSizes, KOMISI_COLORS, PRIMARY, Radius, Shadows, Spacing } from '../../constants/theme';
 import { useColorScheme } from '../../hooks/use-color-scheme';
 import { useDashboard } from '../../hooks/useDashboard';
-import { useFocusEffect } from '@react-navigation/native';
-import React from 'react';
 import { notifikasiStorage, userStorage } from '../../utils/storage';
 
 export default function DashboardScreen() {
@@ -57,6 +56,7 @@ export default function DashboardScreen() {
   useFocusEffect(
     React.useCallback(() => {
       loadNotifCount();
+      onRefresh(); // Memuat ulang data dashboard setiap kali layar ini mendapat fokus
     }, [])
   );
   const totalPresensi = stats.hadirCount + stats.tidakHadirCount;
@@ -87,27 +87,54 @@ export default function DashboardScreen() {
         <Text style={styles.heroSubtitle}>Komisi I, II, III, IV & V DPRD</Text>
 
         {activeUser ? (
-          <View style={styles.userBanner}>
-            <Text style={styles.userBannerTitle}>Selamat datang, {activeUser.displayName}</Text>
-            <Text style={styles.userBannerSub}>Role aktif: {activeUser.roleLabel}</Text>
+          <View style={[styles.userBanner, activeUser.role === 'pimpinan' && styles.userBannerPimpinan]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.userBannerTitle}>Selamat datang, {activeUser.displayName}</Text>
+                <Text style={styles.userBannerSub}>Role aktif: {activeUser.roleLabel}</Text>
+              </View>
+              {activeUser.role === 'pimpinan' && (
+                <View style={styles.pimpinanBadge}>
+                  <MaterialIcons name="stars" size={14} color="#78350F" />
+                  <Text style={styles.pimpinanBadgeText}>Pimpinan</Text>
+                </View>
+              )}
+            </View>
           </View>
         ) : null}
 
-        {/* SCAN PDF FAST BANNER */}
-        <TouchableOpacity
-          style={styles.heroScanBtn}
-          onPress={() => router.push('/arsip/scan' as any)}
-          activeOpacity={0.85}
-        >
-          <View style={styles.heroScanIconBg}>
-            <MaterialIcons name="document-scanner" size={22} color={PRIMARY.navy} />
-          </View>
-          <View style={styles.heroScanTextContainer}>
-            <Text style={styles.heroScanTitle}>Scan Berkas Fisik → PDF</Text>
-            <Text style={styles.heroScanSub}>Fitur kamera digitalisasi arsip komisi</Text>
-          </View>
-          <MaterialIcons name="chevron-right" size={22} color="#FFF" />
-        </TouchableOpacity>
+        {/* SCAN PDF FAST BANNER - DISESUAIKAN UNTUK PIMPINAN */}
+        {activeUser?.role === 'pimpinan' ? (
+          <TouchableOpacity
+            style={[styles.heroScanBtn, { backgroundColor: 'rgba(245, 158, 11, 0.25)', borderColor: '#F59E0B' }]}
+            onPress={() => router.push('/absensi/rekap' as any)}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.heroScanIconBg, { backgroundColor: '#F59E0B' }]}>
+              <MaterialIcons name="insights" size={22} color="#FFF" />
+            </View>
+            <View style={styles.heroScanTextContainer}>
+              <Text style={styles.heroScanTitle}>Executive Overview & Kuorum</Text>
+              <Text style={styles.heroScanSub}>Pantau kehadiran & kedisiplinan seluruh Komisi I–V</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={22} color="#FFF" />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.heroScanBtn}
+            onPress={() => router.push('/arsip/scan' as any)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.heroScanIconBg}>
+              <MaterialIcons name="document-scanner" size={22} color={PRIMARY.navy} />
+            </View>
+            <View style={styles.heroScanTextContainer}>
+              <Text style={styles.heroScanTitle}>Scan Berkas Fisik → PDF</Text>
+              <Text style={styles.heroScanSub}>Fitur kamera digitalisasi arsip komisi</Text>
+            </View>
+            <MaterialIcons name="chevron-right" size={22} color="#FFF" />
+          </TouchableOpacity>
+        )}
       </View>
 
       <ScrollView
@@ -128,40 +155,71 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* INFO PANDUAN APLIKASI CARD */}
+        {/* INFO PANDUAN APLIKASI CARD - KHUSUS PIMPINAN ATAU UMUM */}
         <View style={[styles.infoAppCard, { backgroundColor: theme.surface, borderColor: theme.border }, Shadows.md]}>
           <View style={styles.infoAppHeader}>
-            <View style={styles.infoAppIconBg}>
-              <MaterialIcons name="info-outline" size={22} color={PRIMARY.blue} />
+            <View style={[styles.infoAppIconBg, activeUser?.role === 'pimpinan' && { backgroundColor: '#FEF3C7' }]}>
+              <MaterialIcons 
+                name={activeUser?.role === 'pimpinan' ? 'shield' : 'info-outline'} 
+                size={22} 
+                color={activeUser?.role === 'pimpinan' ? '#D97706' : PRIMARY.blue} 
+              />
             </View>
             <View style={styles.infoAppTitleBox}>
-              <Text style={[styles.infoAppTitle, { color: theme.text }]}>Tentang Aplikasi SIM Komisi DPRD</Text>
+              <Text style={[styles.infoAppTitle, { color: theme.text }]}>
+                {activeUser?.role === 'pimpinan' ? 'Mode Pimpinan & Pengawasan' : 'Tentang Aplikasi SIM Komisi DPRD'}
+              </Text>
               <Text style={[styles.infoAppSub, { color: theme.textSecondary }]}>
-                Panduan ringkas penggunaan sistem informasi
+                {activeUser?.role === 'pimpinan' ? 'Akses Eksekutif & Monitoring Lintas Komisi' : 'Panduan ringkas penggunaan sistem informasi'}
               </Text>
             </View>
           </View>
           <Text style={[styles.infoAppDesc, { color: theme.textSecondary }]}>
-            Aplikasi ini digunakan untuk digitalisasi agenda rapat, absensi berbasis QR Code, pencatatan notulen, serta pengarsipan berkas fisik (Komisi I s.d. V DPRD).
+            {activeUser?.role === 'pimpinan' 
+              ? 'Sebagai Pimpinan DPRD, Anda memiliki hak akses pemantauan menyeluruh terhadap agenda sidang, kuorum presensi dewan, serta validasi laporan dan risalah rapat seluruh komisi.'
+              : 'Aplikasi ini digunakan untuk digitalisasi agenda rapat, absensi berbasis QR Code, pencatatan notulen, serta pengarsipan berkas fisik (Komisi I s.d. V DPRD).'}
           </Text>
 
           <View style={styles.guideGrid}>
-            <View style={styles.guideItem}>
-              <MaterialIcons name="event-note" size={16} color={PRIMARY.blue} />
-              <Text style={[styles.guideText, { color: theme.text }]}>1. Cek Jadwal & Perubahan</Text>
-            </View>
-            <View style={styles.guideItem}>
-              <MaterialIcons name="qr-code-scanner" size={16} color="#10B981" />
-              <Text style={[styles.guideText, { color: theme.text }]}>2. Presensi Absensi QR</Text>
-            </View>
-            <View style={styles.guideItem}>
-              <MaterialIcons name="document-scanner" size={16} color="#D97706" />
-              <Text style={[styles.guideText, { color: theme.text }]}>3. Scan Berkas ke PDF</Text>
-            </View>
-            <View style={styles.guideItem}>
-              <MaterialIcons name="assessment" size={16} color="#9333EA" />
-              <Text style={[styles.guideText, { color: theme.text }]}>4. Export Laporan Resmi</Text>
-            </View>
+            {activeUser?.role === 'pimpinan' ? (
+              <>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="visibility" size={16} color="#D97706" />
+                  <Text style={[styles.guideText, { color: theme.text }]}>1. Monitor Seluruh Komisi</Text>
+                </View>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="how-to-reg" size={16} color="#10B981" />
+                  <Text style={[styles.guideText, { color: theme.text }]}>2. Pantau Kuorum Sidang</Text>
+                </View>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="verified" size={16} color="#2563EB" />
+                  <Text style={[styles.guideText, { color: theme.text }]}>3. Review Berkas & Notulen</Text>
+                </View>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="analytics" size={16} color="#9333EA" />
+                  <Text style={[styles.guideText, { color: theme.text }]}>4. Rekapitulasi Kinerja</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="event-note" size={16} color={PRIMARY.blue} />
+                  <Text style={[styles.guideText, { color: theme.text }]}>1. Cek Jadwal & Perubahan</Text>
+                </View>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="qr-code-scanner" size={16} color="#10B981" />
+                  <Text style={[styles.guideText, { color: theme.text }]}>2. Presensi Absensi QR</Text>
+                </View>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="document-scanner" size={16} color="#D97706" />
+                  <Text style={[styles.guideText, { color: theme.text }]}>3. Scan Berkas ke PDF</Text>
+                </View>
+                <View style={styles.guideItem}>
+                  <MaterialIcons name="assessment" size={16} color="#9333EA" />
+                  <Text style={[styles.guideText, { color: theme.text }]}>4. Export Laporan Resmi</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -542,6 +600,26 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
     marginTop: 4,
     marginBottom: 4,
+  },
+  userBannerPimpinan: {
+    backgroundColor: 'rgba(245, 158, 11, 0.18)',
+    borderColor: 'rgba(245, 158, 11, 0.5)',
+    borderWidth: 1,
+  },
+  pimpinanBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
+  },
+  pimpinanBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#78350F',
+    textTransform: 'uppercase',
   },
   userBannerTitle: {
     color: '#FFF',

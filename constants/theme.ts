@@ -53,14 +53,6 @@ export const KOMISI_COLORS = {
     text: '#831843',
     lightText: '#F472B6',
   },
-  'Komisi V': {
-    bg: '#F3E8FF',
-    border: '#E9D5FF',
-    accent: '#9333EA',
-    gradient: ['#9333EA', '#A855F7'],
-    text: '#581C87',
-    lightText: '#C084FC',
-  },
 };
 
 // === STATUS COLORS ===

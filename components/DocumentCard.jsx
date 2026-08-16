@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Colors, KOMISI_COLORS, Spacing, Radius, Shadows, FontSizes } from '@/constants/theme';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import React from 'react';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Colors, FontSizes, KOMISI_COLORS, Radius, Shadows, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function DocumentCard({ item, onPress, onDelete = undefined }) {
@@ -14,6 +16,39 @@ export default function DocumentCard({ item, onPress, onDelete = undefined }) {
     text: '#312E81',
   };
 
+  const handleOpenFile = async () => {
+    try {
+      if (!item.fileUri) {
+        Alert.alert('File Tidak Tersedia', 'Dokumen ini tidak memiliki file yang bisa dibuka.');
+        return;
+      }
+
+      const info = await FileSystem.getInfoAsync(item.fileUri);
+      if (!info.exists) {
+        Alert.alert(
+          'File Tidak Ditemukan',
+          'File dokumen tidak ditemukan di perangkat. Mungkin sudah terhapus atau dipindahkan.',
+        );
+        return;
+      }
+
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('Tidak Dapat Dibuka', 'Perangkat tidak mendukung berbagi / membuka file.');
+        return;
+      }
+
+      await Sharing.shareAsync(item.fileUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: item.namaDoc || 'Buka Dokumen',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Gagal membuka file dokumen.');
+      console.error('Error opening file:', error);
+    }
+  };
+
   return (
     <TouchableOpacity
       style={[
@@ -24,10 +59,10 @@ export default function DocumentCard({ item, onPress, onDelete = undefined }) {
       onPress={onPress}
       activeOpacity={0.82}
     >
-      <View style={styles.pdfBadgeBox}>
+      <TouchableOpacity style={styles.pdfBadgeBox} onPress={handleOpenFile} activeOpacity={0.7}>
         <MaterialIcons name="picture-as-pdf" size={28} color="#EF4444" />
-        <Text style={styles.pdfExt}>PDF</Text>
-      </View>
+        <Text style={styles.pdfExt}>BUKA</Text>
+      </TouchableOpacity>
 
       <View style={styles.content}>
         <View style={styles.header}>
@@ -53,15 +88,26 @@ export default function DocumentCard({ item, onPress, onDelete = undefined }) {
             <Text style={[styles.metaText, { color: theme.textTertiary }]}>{item.tanggalDoc || 'Hari ini'}</Text>
           </View>
 
-          {onDelete && (
+          <View style={styles.actions}>
             <TouchableOpacity
-              onPress={() => onDelete(item)}
-              style={styles.deleteBtn}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              onPress={handleOpenFile}
+              style={styles.openBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <MaterialIcons name="delete-outline" size={18} color="#EF4444" />
+              <MaterialIcons name="open-in-new" size={16} color="#2563EB" />
+              <Text style={styles.openBtnText}>Buka</Text>
             </TouchableOpacity>
-          )}
+
+            {onDelete && (
+              <TouchableOpacity
+                onPress={() => onDelete(item)}
+                style={styles.deleteBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <MaterialIcons name="delete-outline" size={18} color="#EF4444" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -87,7 +133,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   pdfExt: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: '800',
     color: '#EF4444',
     letterSpacing: 0.5,
@@ -136,6 +182,25 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: FontSizes.xs,
+  },
+  actions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  openBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  openBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563EB',
   },
   deleteBtn: {
     padding: 2,

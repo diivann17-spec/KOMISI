@@ -32,13 +32,6 @@ export const DAFTAR_KOMISI = [
     deskripsi: 'Membidangi pendidikan, kesehatan, sosial, ketenagakerjaan, dan agama.',
     icon: 'people',
   },
-  {
-    id: 'komisi-5',
-    nama: 'Komisi V',
-    bidang: 'Kesejahteraan & Pemberdayaan',
-    deskripsi: 'Membidangi kesejahteraan masyarakat, pemberdayaan, dan kepemudaan.',
-    icon: 'groups',
-  },
 ];
 
 // === JENIS KEGIATAN ===
@@ -115,11 +108,6 @@ export const MOCK_ANGGOTA = [
   { id: 'a18', nama: 'Rina Oktaviani, S.Sos.', jabatan: 'Sekretaris', komisi: 'Komisi IV' },
   { id: 'a19', nama: 'Dr. Arif Rahman, M.Si.', jabatan: 'Anggota', komisi: 'Komisi IV' },
   { id: 'a20', nama: 'Hj. Lestari Ningrum, S.Kep.', jabatan: 'Anggota', komisi: 'Komisi IV' },
-  { id: 'a21', nama: 'H. Darmawan Putra, S.Sos., M.Si.', jabatan: 'Ketua', komisi: 'Komisi V' },
-  { id: 'a22', nama: 'Hj. Sri Mulyani, S.E.', jabatan: 'Wakil Ketua', komisi: 'Komisi V' },
-  { id: 'a23', nama: 'Teguh Prasetyo, S.IP.', jabatan: 'Sekretaris', komisi: 'Komisi V' },
-  { id: 'a24', nama: 'Fitri Handayani, S.Sos.', jabatan: 'Anggota', komisi: 'Komisi V' },
-  { id: 'a25', nama: 'Rudi Hermawan, S.H.', jabatan: 'Anggota', komisi: 'Komisi V' },
 ];
 
 // === MOCK DATA: JADWAL ===
@@ -183,20 +171,6 @@ export const MOCK_JADWAL = [
     peserta: ['a16', 'a17', 'a18', 'a19', 'a20'],
     penanggungJawab: 'a16',
     keterangan: 'Dengar pendapat dengan Dinas Kesehatan',
-  },
-  {
-    id: 'j5',
-    judul: 'Audiensi Komisi V - Karang Taruna',
-    jenis: 'audiensi',
-    komisi: 'Komisi V',
-    tanggal: formatDate(addDays(today, 3)),
-    waktuMulai: '14:00',
-    waktuSelesai: '16:00',
-    lokasi: 'Ruang Rapat Komisi V',
-    status: 'terjadwal',
-    peserta: ['a21', 'a22', 'a23', 'a24', 'a25'],
-    penanggungJawab: 'a21',
-    keterangan: 'Audiensi dengan pengurus Karang Taruna tingkat kabupaten',
   },
   {
     id: 'j6',

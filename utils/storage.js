@@ -1,9 +1,10 @@
-/**
- * AsyncStorage wrapper untuk CRUD operasi data
- */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  addDoc,
+  collection
+} from 'firebase/firestore';
+import { db } from './firebase';
 
-// === STORAGE KEYS ===
 const KEYS = {
   JADWAL: '@dprd_jadwal',
   ARSIP: '@dprd_arsip',
@@ -14,12 +15,10 @@ const KEYS = {
   USER: '@dprd_user',
 };
 
-// === ID GENERATOR ===
 export const generateId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
 };
 
-// === DATE FORMATTING ===
 export const formatDate = (dateStr) => {
   if (!dateStr) return '-';
   const d = new Date(dateStr);
@@ -48,199 +47,217 @@ export const formatTime = (timeStr) => {
 export const formatDateTime = (isoStr) => {
   if (!isoStr) return '-';
   const d = new Date(isoStr);
-  return `${formatDate(isoStr)}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const bulan = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+    'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  ];
+  return `${d.getDate()} ${bulan[d.getMonth()]} ${d.getFullYear()}, ${d.getHours().toString().padStart(2, '0')}.${d.getMinutes().toString().padStart(2, '0')}`;
 };
 
-// === FILE SIZE FORMATTING ===
-export const formatFileSize = (bytes) => {
-  if (!bytes || bytes === 0) return '0 B';
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${(bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)} ${sizes[i]}`;
-};
-
-// === DAY NAMES ===
-export const getDayName = (dateStr) => {
-  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
-  const d = new Date(dateStr);
-  return days[d.getDay()];
-};
-
-// === GENERIC CRUD ===
 const getData = async (key) => {
   try {
-    const data = await AsyncStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  } catch (error) {
-    console.error(`Error getting ${key}:`, error);
+    const jsonValue = await AsyncStorage.getItem(key);
+    return jsonValue != null ? JSON.parse(jsonValue) : [];
+  } catch (e) {
+    console.error(`Error reading ${key}:`, e);
     return [];
   }
 };
 
-const saveData = async (key, data) => {
+const setData = async (key, value) => {
   try {
-    await AsyncStorage.setItem(key, JSON.stringify(data));
+    await AsyncStorage.setItem(key, JSON.stringify(value));
     return true;
-  } catch (error) {
-    console.error(`Error saving ${key}:`, error);
+  } catch (e) {
+    console.error(`Error writing ${key}:`, e);
     return false;
   }
 };
 
-const addItem = async (key, item) => {
-  const data = await getData(key);
-  const newItem = { ...item, id: item.id || generateId(), createdAt: new Date().toISOString() };
-  data.unshift(newItem);
-  await saveData(key, data);
-  return newItem;
-};
-
-const updateItem = async (key, id, updates) => {
-  const data = await getData(key);
-  const index = data.findIndex((item) => item.id === id);
-  if (index === -1) return null;
-  data[index] = { ...data[index], ...updates, updatedAt: new Date().toISOString() };
-  await saveData(key, data);
-  return data[index];
-};
-
-const deleteItem = async (key, id) => {
-  const data = await getData(key);
-  const filtered = data.filter((item) => item.id !== id);
-  await saveData(key, filtered);
-  return true;
-};
-
-const getItemById = async (key, id) => {
-  const data = await getData(key);
-  return data.find((item) => item.id === id) || null;
-};
-
-// === JADWAL ===
-export const jadwalStorage = {
-  getAll: () => getData(KEYS.JADWAL),
-  getById: (id) => getItemById(KEYS.JADWAL, id),
-  add: (jadwal) => addItem(KEYS.JADWAL, jadwal),
-  update: (id, updates) => updateItem(KEYS.JADWAL, id, updates),
-  delete: (id) => deleteItem(KEYS.JADWAL, id),
-  getByKomisi: async (komisi) => {
-    const data = await getData(KEYS.JADWAL);
-    return data.filter((j) => j.komisi === komisi);
+const createStorage = (key, collectionName) => ({
+  getAll: async () => {
+    return await getData(key);
   },
-  getByTanggal: async (tanggal) => {
-    const data = await getData(KEYS.JADWAL);
-    return data.filter((j) => j.tanggal === tanggal);
-  },
-};
 
-// === ARSIP ===
-export const arsipStorage = {
-  getAll: () => getData(KEYS.ARSIP),
-  getById: (id) => getItemById(KEYS.ARSIP, id),
-  add: (arsip) => addItem(KEYS.ARSIP, arsip),
-  update: (id, updates) => updateItem(KEYS.ARSIP, id, updates),
-  delete: (id) => deleteItem(KEYS.ARSIP, id),
-  getByKomisi: async (komisi) => {
-    const data = await getData(KEYS.ARSIP);
-    return data.filter((a) => a.komisi === komisi);
+  getById: async (id) => {
+    const data = await getData(key);
+    return data.find((item) => item.id === id) || null;
   },
-  getByJenis: async (jenis) => {
-    const data = await getData(KEYS.ARSIP);
-    return data.filter((a) => a.jenisDoc === jenis);
+
+  add: async (item) => {
+    const data = await getData(key);
+    const newItem = {
+      ...item,
+      id: generateId(),
+      createdAt: new Date().toISOString(),
+    };
+    data.unshift(newItem);
+    await setData(key, data);
+
+    try {
+      if (db) {
+        await addDoc(collection(db, collectionName), newItem);
+      }
+    } catch (err) {
+      console.warn(`[Firebase Firestore Sync Warning]:`, err);
+    }
+
+    return newItem;
   },
-  search: async (query) => {
-    const data = await getData(KEYS.ARSIP);
-    const q = query.toLowerCase();
-    return data.filter(
-      (a) =>
-        a.namaDoc?.toLowerCase().includes(q) ||
-        a.nomorDoc?.toLowerCase().includes(q) ||
-        a.keterangan?.toLowerCase().includes(q)
+
+  update: async (id, updates) => {
+    const data = await getData(key);
+    const index = data.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      data[index] = { ...data[index], ...updates, updatedAt: new Date().toISOString() };
+      await setData(key, data);
+      return data[index];
+    }
+    return null;
+  },
+
+  delete: async (id) => {
+    const data = await getData(key);
+    const filtered = data.filter((item) => item.id !== id);
+    await setData(key, filtered);
+    return true;
+  },
+
+  search: async (queryStr) => {
+    const data = await getData(key);
+    const q = queryStr.toLowerCase();
+    return data.filter((item) =>
+      Object.values(item).some(
+        (val) => typeof val === 'string' && val.toLowerCase().includes(q)
+      )
     );
   },
+});
+
+export const jadwalStorage = createStorage(KEYS.JADWAL, 'jadwal');
+export const arsipStorage = createStorage(KEYS.ARSIP, 'arsip');
+export const absensiStorage = createStorage(KEYS.ABSENSI, 'absensi');
+export const rapatStorage = createStorage(KEYS.RAPAT, 'rapat');
+
+// ----------------------------------------------------------
+// GPS Helper
+// ----------------------------------------------------------
+/**
+ * Get current geographic position using the browser Geolocation API.
+ * Returns a Promise that resolves to an object { latitude, longitude }.
+ */
+export const getCurrentPosition = () => {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation not supported'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      },
+      (err) => {
+        reject(err);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
 };
 
-// === ABSENSI ===
-export const absensiStorage = {
-  getAll: () => getData(KEYS.ABSENSI),
-  getById: (id) => getItemById(KEYS.ABSENSI, id),
-  add: (absensi) => addItem(KEYS.ABSENSI, absensi),
-  update: (id, updates) => updateItem(KEYS.ABSENSI, id, updates),
-  delete: (id) => deleteItem(KEYS.ABSENSI, id),
-  getByKegiatan: async (kegiatanId) => {
-    const data = await getData(KEYS.ABSENSI);
-    return data.filter((a) => a.kegiatanId === kegiatanId);
+// ----------------------------------------------------------
+// Offline Attendance IndexedDB Helper
+// ----------------------------------------------------------
+const OFFLINE_DB_NAME = 'attendanceDB';
+const OFFLINE_STORE_NAME = 'pending';
+
+const openOfflineDB = () => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(OFFLINE_DB_NAME, 1);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains(OFFLINE_STORE_NAME)) {
+        db.createObjectStore(OFFLINE_STORE_NAME, { keyPath: 'id', autoIncrement: true });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+export const offlineAttendanceDB = {
+  addPending: async (record) => {
+    const db = await openOfflineDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(OFFLINE_STORE_NAME);
+      const request = store.add({ ...record, createdAt: new Date().toISOString() });
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  getAllPending: async () => {
+    const db = await openOfflineDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(OFFLINE_STORE_NAME, 'readonly');
+      const store = tx.objectStore(OFFLINE_STORE_NAME);
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  },
+  clearPending: async () => {
+    const db = await openOfflineDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(OFFLINE_STORE_NAME, 'readwrite');
+      const store = tx.objectStore(OFFLINE_STORE_NAME);
+      const request = store.clear();
+      request.onsuccess = () => resolve(true);
+      request.onerror = () => reject(request.error);
+    });
   },
 };
 
-// === RAPAT ===
-export const rapatStorage = {
-  getAll: () => getData(KEYS.RAPAT),
-  getById: (id) => getItemById(KEYS.RAPAT, id),
-  add: (rapat) => addItem(KEYS.RAPAT, rapat),
-  update: (id, updates) => updateItem(KEYS.RAPAT, id, updates),
-  delete: (id) => deleteItem(KEYS.RAPAT, id),
-};
 
-// === PERUBAHAN JADWAL ===
-export const perubahanJadwalStorage = {
-  getAll: () => getData(KEYS.PERUBAHAN_JADWAL),
-  add: (perubahan) => addItem(KEYS.PERUBAHAN_JADWAL, perubahan),
-  getByJadwal: async (jadwalId) => {
-    const data = await getData(KEYS.PERUBAHAN_JADWAL);
-    return data.filter((p) => p.jadwalId === jadwalId);
-  },
-};
 
-// === NOTIFIKASI ===
+
 export const notifikasiStorage = {
-  getAll: () => getData(KEYS.NOTIFIKASI),
-  add: (notif) => addItem(KEYS.NOTIFIKASI, notif),
-  markAsRead: (id) => updateItem(KEYS.NOTIFIKASI, id, { dibaca: true }),
+  ...createStorage(KEYS.NOTIFIKASI, 'notifikasi'),
+  getUnread: async () => {
+    const data = await getData(KEYS.NOTIFIKASI);
+    return data.filter((item) => !item.dibaca);
+  },
   markAllAsRead: async () => {
     const data = await getData(KEYS.NOTIFIKASI);
     const updated = data.map((item) => ({ ...item, dibaca: true }));
-    await saveData(KEYS.NOTIFIKASI, updated);
+    await setData(KEYS.NOTIFIKASI, updated);
     return true;
   },
-  getUnread: async () => {
+  markAsRead: async (id) => {
     const data = await getData(KEYS.NOTIFIKASI);
-    return data.filter((n) => !n.dibaca);
+    const index = data.findIndex((item) => item.id === id);
+    if (index !== -1) {
+      data[index] = { ...data[index], dibaca: true, updatedAt: new Date().toISOString() };
+      await setData(KEYS.NOTIFIKASI, data);
+      return data[index];
+    }
+    return null;
   },
 };
 
-// === SEED DATA ===
-export const seedMockData = async () => {
-  const { MOCK_JADWAL, MOCK_ARSIP } = require('@/constants/data');
-  
-  const existingJadwal = await getData(KEYS.JADWAL);
-  if (existingJadwal.length === 0) {
-    await saveData(KEYS.JADWAL, MOCK_JADWAL);
-  }
-
-  const existingArsip = await getData(KEYS.ARSIP);
-  if (existingArsip.length === 0) {
-    await saveData(KEYS.ARSIP, MOCK_ARSIP);
-  }
-};
-
-// === USER AUTH ===
 export const userStorage = {
   getCurrentUser: async () => {
     try {
-      const data = await AsyncStorage.getItem(KEYS.USER);
-      return data ? JSON.parse(data) : null;
-    } catch (error) {
-      console.error('Error getting current user:', error);
+      const jsonValue = await AsyncStorage.getItem(KEYS.USER);
+      return jsonValue != null ? JSON.parse(jsonValue) : null;
+    } catch (e) {
       return null;
     }
   },
-  saveCurrentUser: async (user) => {
+  setCurrentUser: async (user) => {
     try {
       await AsyncStorage.setItem(KEYS.USER, JSON.stringify(user));
       return true;
-    } catch (error) {
-      console.error('Error saving current user:', error);
+    } catch (e) {
       return false;
     }
   },
@@ -248,47 +265,21 @@ export const userStorage = {
     try {
       await AsyncStorage.removeItem(KEYS.USER);
       return true;
-    } catch (error) {
-      console.error('Error clearing current user:', error);
+    } catch (e) {
       return false;
     }
   },
 };
 
-// === CLEAR ALL ===
-export const clearAllData = async () => {
-  try {
-    await AsyncStorage.multiRemove(Object.values(KEYS));
-    return true;
-  } catch (error) {
-    console.error('Error clearing data:', error);
-    return false;
-  }
-};
-
-export const syncAppData = async () => {
-  try {
-    const [jadwal, arsip, absensi, rapat, notifikasi] = await Promise.all([
-      getData(KEYS.JADWAL),
-      getData(KEYS.ARSIP),
-      getData(KEYS.ABSENSI),
-      getData(KEYS.RAPAT),
-      getData(KEYS.NOTIFIKASI),
-    ]);
-
-    const payload = {
-      jadwal,
-      arsip,
-      absensi,
-      rapat,
-      notifikasi,
-      syncedAt: new Date().toISOString(),
-    };
-
-    await AsyncStorage.setItem('@dprd_sync_payload', JSON.stringify(payload));
-    return payload;
-  } catch (error) {
-    console.error('Error syncing data:', error);
-    throw error;
+export const seedMockData = async () => {
+  const existingUser = await userStorage.getCurrentUser();
+  if (!existingUser) {
+    await userStorage.setCurrentUser({
+      id: 'u-admin-1',
+      username: 'admin',
+      displayName: 'Admin Sekretariat',
+      role: 'sekretariat',
+      roleLabel: 'Admin / Sekretariat DPRD',
+    });
   }
 };

@@ -37,79 +37,152 @@ export default function MenuScreen() {
     };
   }, []);
 
-  const menuSections = [
-    {
-      title: 'Fitur Utama Komisi I–V',
-      items: [
+  const handleLogout = async () => {
+    await userStorage.clearCurrentUser();
+    router.replace('/login');
+  };
+
+  const isPimpinan = activeUser?.role === 'pimpinan';
+
+  const menuSections = isPimpinan
+    ? [
         {
-          id: 'absensi',
-          label: 'Presensi & Absensi Anggota',
-          sub: 'Scan QR Code kehadiran per kegiatan',
-          icon: 'qr-code-scanner',
-          color: '#10B981',
-          bgColor: '#D1FAE5',
-          route: '/absensi/rekap',
+          title: 'Menu Khusus Pimpinan (Ketua DPRD)',
+          items: [
+            {
+              id: 'absensi',
+              label: 'Monitoring Kehadiran & Kuorum',
+              sub: 'Pantau rekapitulasi kehadiran dewan Komisi I–V',
+              icon: 'insights',
+              color: '#F59E0B',
+              bgColor: '#FEF3C7',
+              route: '/absensi/rekap',
+            },
+            {
+              id: 'laporan',
+              label: 'Review Laporan & Kinerja',
+              sub: 'Laporan eksekutif, notulensi & statistik kegiatan',
+              icon: 'assessment',
+              color: '#9333EA',
+              bgColor: '#F3E8FF',
+              route: '/laporan',
+            },
+            {
+              id: 'rapat',
+              label: 'Risalah Sidang & Berita Acara',
+              sub: 'Tinjau hasil keputusan rapat & dokumen sidang',
+              icon: 'verified',
+              color: '#2563EB',
+              bgColor: '#DBEAFE',
+              route: '/rapat/notulen',
+            },
+            {
+              id: 'perubahan',
+              label: 'Persetujuan Perubahan Jadwal',
+              sub: 'Tinjau permohonan reschedule agenda komisi',
+              icon: 'published-with-changes',
+              color: '#10B981',
+              bgColor: '#D1FAE5',
+              route: '/jadwal/edit',
+            },
+          ],
         },
         {
-          id: 'rapat',
-          label: 'Modul Rapat & Notulen',
-          sub: 'Kelola agenda, notulen & berita acara',
-          icon: 'meeting-room',
-          color: '#2563EB',
-          bgColor: '#DBEAFE',
-          route: '/rapat/notulen',
+          title: 'Pemberitahuan & Sistem',
+          items: [
+            {
+              id: 'notifikasi',
+              label: 'Pemberitahuan Pimpinan',
+              sub: 'Notifikasi agenda mendesak & disposisi',
+              icon: 'notifications',
+              color: '#2563EB',
+              bgColor: '#DBEAFE',
+              route: '/notifikasi',
+            },
+            {
+              id: 'hak-akses',
+              label: 'Info Hak Akses Pimpinan',
+              sub: 'Akses Eksekutif Pimpinan DPRD',
+              icon: 'stars',
+              color: '#F59E0B',
+              bgColor: '#FEF3C7',
+            },
+          ],
+        },
+      ]
+    : [
+        {
+          title: 'Fitur Utama Komisi I–V',
+          items: [
+            {
+              id: 'absensi',
+              label: 'Presensi & Absensi Anggota',
+              sub: 'Scan QR Code kehadiran per kegiatan',
+              icon: 'qr-code-scanner',
+              color: '#10B981',
+              bgColor: '#D1FAE5',
+              route: '/absensi/rekap',
+            },
+            {
+              id: 'rapat',
+              label: 'Modul Rapat & Notulen',
+              sub: 'Kelola agenda, notulen & berita acara',
+              icon: 'meeting-room',
+              color: '#2563EB',
+              bgColor: '#DBEAFE',
+              route: '/rapat/notulen',
+            },
+            {
+              id: 'perubahan',
+              label: 'Perubahan Penjadwalan',
+              sub: 'Riwayat reschedule & alasan perubahan',
+              icon: 'published-with-changes',
+              color: '#F59E0B',
+              bgColor: '#FEF3C7',
+              route: '/jadwal/edit',
+            },
+            {
+              id: 'laporan',
+              label: 'Modul Laporan PDF Resmi',
+              sub: 'Cetak laporan kegiatan & presensi',
+              icon: 'assessment',
+              color: '#9333EA',
+              bgColor: '#F3E8FF',
+              route: '/laporan',
+            },
+          ],
         },
         {
-          id: 'perubahan',
-          label: 'Perubahan Penjadwalan',
-          sub: 'Riwayat reschedule & alasan perubahan',
-          icon: 'published-with-changes',
-          color: '#F59E0B',
-          bgColor: '#FEF3C7',
-          route: '/jadwal/edit',
+          title: 'Sistem & Hak Akses',
+          items: [
+            {
+              id: 'notifikasi',
+              label: 'Notifikasi & Pengingat',
+              sub: 'Pengaturan alarm & notifikasi jadwal',
+              icon: 'notifications',
+              color: '#2563EB',
+              bgColor: '#DBEAFE',
+              route: '/notifikasi',
+            },
+            {
+              id: 'hak-akses',
+              label: 'Pengguna & Hak Akses',
+              sub: 'Admin, Sekretariat, Anggota, Pimpinan',
+              icon: 'admin-panel-settings',
+              color: '#EF4444',
+              bgColor: '#FEE2E2',
+            },
+            {
+              id: 'reset',
+              label: 'Reset Data Mock',
+              sub: 'Bersihkan & kembalikan data ke awal',
+              icon: 'refresh',
+              color: '#64748B',
+              bgColor: '#F1F5F9',
+            },
+          ],
         },
-        {
-          id: 'laporan',
-          label: 'Modul Laporan PDF Resmi',
-          sub: 'Cetak laporan kegiatan & presensi',
-          icon: 'assessment',
-          color: '#9333EA',
-          bgColor: '#F3E8FF',
-          route: '/laporan',
-        },
-      ],
-    },
-    {
-      title: 'Sistem & Hak Akses',
-      items: [
-        {
-          id: 'notifikasi',
-          label: 'Notifikasi & Pengingat',
-          sub: 'Pengaturan alarm & notifikasi jadwal',
-          icon: 'notifications',
-          color: '#2563EB',
-          bgColor: '#DBEAFE',
-          route: '/notifikasi',
-        },
-        {
-          id: 'hak-akses',
-          label: 'Pengguna & Hak Akses',
-          sub: 'Admin, Sekretariat, Anggota, Pimpinan',
-          icon: 'admin-panel-settings',
-          color: '#EF4444',
-          bgColor: '#FEE2E2',
-        },
-        {
-          id: 'reset',
-          label: 'Reset Data Mock',
-          sub: 'Bersihkan & kembalikan data ke awal',
-          icon: 'refresh',
-          color: '#64748B',
-          bgColor: '#F1F5F9',
-        },
-      ],
-    },
-  ];
+      ];
 
   const handleMenuPress = (item) => {
     if (item.route) {
@@ -134,7 +207,7 @@ export default function MenuScreen() {
     } else {
       Alert.alert(
         item.label,
-        `Role & Hak Akses: Terhubung sebagai Admin Sekretariat DPRD.`
+        `Role & Hak Akses: Terhubung sebagai ${activeUser?.roleLabel || 'Pimpinan / Anggota DPRD'}.`
       );
     }
   };
@@ -158,7 +231,7 @@ export default function MenuScreen() {
         {/* USER CARD PROFILE */}
         <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }, Shadows.md]}>
           <View style={[styles.avatar, { backgroundColor: PRIMARY.navy }]}>
-            <Text style={styles.avatarText}>A</Text>
+            <Text style={styles.avatarText}>{(activeUser?.displayName || 'A').charAt(0).toUpperCase()}</Text>
           </View>
           <View style={styles.profileInfo}>
             <Text style={[styles.userName, { color: theme.text }]}>
@@ -205,6 +278,25 @@ export default function MenuScreen() {
             </View>
           </View>
         ))}
+
+        {/* LOGOUT BUTTON */}
+        <TouchableOpacity
+          style={styles.logoutBtn}
+          onPress={() =>
+            Alert.alert(
+              'Konfirmasi Keluar',
+              'Apakah Anda yakin ingin keluar dari sistem?',
+              [
+                { text: 'Batal', style: 'cancel' },
+                { text: 'Keluar', style: 'destructive', onPress: handleLogout },
+              ]
+            )
+          }
+          activeOpacity={0.85}
+        >
+          <MaterialIcons name="logout" size={20} color="#EF4444" />
+          <Text style={styles.logoutText}>Keluar dari Sistem</Text>
+        </TouchableOpacity>
 
         <Text style={[styles.versionText, { color: theme.textTertiary }]}>
           SIM Kegiatan Komisi I–V DPRD Mobile v1.0.0
@@ -332,6 +424,23 @@ const styles = StyleSheet.create({
   versionText: {
     textAlign: 'center',
     fontSize: FontSizes.xs,
-    marginVertical: Spacing.md,
+    marginVertical: Spacing.sm,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: Radius.lg,
+    paddingVertical: Spacing.base,
+    marginTop: Spacing.sm,
+  },
+  logoutText: {
+    fontSize: FontSizes.base,
+    fontWeight: '700',
+    color: '#EF4444',
   },
 });

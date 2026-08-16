@@ -5,25 +5,26 @@ import { Colors, FontSizes, PRIMARY, Radius, Shadows, Spacing } from '@/constant
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { generatePdfFromHtml } from '@/utils/pdf';
 import { arsipStorage, notifikasiStorage, syncAppData } from '@/utils/storage';
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    SafeAreaView,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  SafeAreaView,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-
 import { useFocusEffect } from '@react-navigation/native';
+
 
 export default function ArsipScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -72,6 +73,32 @@ export default function ArsipScreen() {
       loadNotifications();
     }, [])
   );
+
+  const openFile = async (fileUri) => {
+    try {
+      if (!fileUri) {
+        Alert.alert('File Tidak Tersedia', 'Dokumen ini tidak memiliki file yang bisa dibuka.');
+        return;
+      }
+      const info = await FileSystem.getInfoAsync(fileUri);
+      if (!info.exists) {
+        Alert.alert('File Tidak Ditemukan', 'File tidak ada di perangkat. Mungkin sudah dihapus.');
+        return;
+      }
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('Tidak Didukung', 'Perangkat tidak mendukung pembukaan file.');
+        return;
+      }
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Buka Dokumen PDF',
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Gagal membuka file dokumen.');
+    }
+  };
 
   const handleDelete = (item) => {
     Alert.alert(
@@ -152,8 +179,8 @@ export default function ArsipScreen() {
             <h1>Daftar Arsip Digital</h1>
             <p>Tanggal: ${new Date().toLocaleDateString('id-ID')}</p>
             <ul>${documents
-              .map((doc) => `<li><strong>${doc.namaDoc || '-'}</strong> — ${doc.komisi || '-'} — ${doc.tanggalDoc || '-'}</li>`)
-              .join('')}</ul>
+          .map((doc) => `<li><strong>${doc.namaDoc || '-'}</strong> — ${doc.komisi || '-'} — ${doc.tanggalDoc || '-'}</li>`)
+          .join('')}</ul>
           </body>
         </html>`;
       const pdfUri = await generatePdfFromHtml(html, `laporan_arsip_${Date.now()}.pdf`);
@@ -351,10 +378,15 @@ export default function ArsipScreen() {
               onPress={() =>
                 Alert.alert(
                   doc.namaDoc,
-                  `Nomor: ${doc.nomorDoc || '-'}\nKomisi: ${doc.komisi}\nTanggal: ${doc.tanggalDoc}\nKeterangan: ${doc.keterangan || '-'}`
+                  `Nomor: ${doc.nomorDoc || '-'}\nKomisi: ${doc.komisi}\nTanggal: ${doc.tanggalDoc}\nKeterangan: ${doc.keterangan || '-'}\n\nTekan tombol "Buka" untuk membuka file PDF.`,
+                  [
+                    { text: 'Batal', style: 'cancel' },
+                    { text: 'Buka', onPress: () => openFile(doc.fileUri) }
+                  ]
                 )
               }
               onDelete={handleDelete}
+            // The DocumentCard component handles its own internal open logic via the pdfBadgeBox
             />
           ))
         )}
