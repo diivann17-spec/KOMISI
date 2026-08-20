@@ -58,6 +58,136 @@ export const generateScanPdfFromImage = (imageDataUrl, filename = 'Hasil_Scan.pd
   });
 };
 
+export const generateOfficialArsipDocumentPdf = (docData, filename = null) => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // KOP RESMI DPRD
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text('DEWAN PERWAKILAN RAKYAT DAERAH', pageWidth / 2, 18, { align: 'center' });
+  doc.setFontSize(12);
+  doc.text(`SEKRETARIAT ${docData.komisi ? docData.komisi.toUpperCase() : 'KOMISI DPRD'}`, pageWidth / 2, 24, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Gedung Sekretariat DPRD • Jl. Parlemen No. 1 • Telp/Fax: (021) 555-DPRD', pageWidth / 2, 29, { align: 'center' });
+
+  // Garis Pembatas Kop
+  doc.setLineWidth(0.8);
+  doc.line(15, 33, pageWidth - 15, 33);
+  doc.setLineWidth(0.2);
+  doc.line(15, 34, pageWidth - 15, 34);
+
+  // JUDUL DOKUMEN
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('LEMBAR ARSIP DOKUMEN DIGITAL RESMI', pageWidth / 2, 43, { align: 'center' });
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Nomor Arsip: ${docData.nomorDoc || 'ARSIP/DPRD/2026/001'}`, pageWidth / 2, 48, { align: 'center' });
+
+  // METADATA TABEL
+  let y = 58;
+  doc.setFontSize(10);
+
+  const drawRow = (label, value) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label, 18, y);
+    doc.text(':', 60, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(value || '—', 64, y);
+    y += 7;
+  };
+
+  drawRow('Nama Dokumen', docData.namaDoc);
+  drawRow('Jenis Dokumen', docData.jenisDoc || 'Dokumen Resmi');
+  drawRow('Komisi Pengampu', docData.komisi);
+  drawRow('Tanggal Terbit / Masuk', docData.tanggalDoc ? new Date(docData.tanggalDoc).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—');
+  drawRow('Status Dokumen', docData.statusFinal === 'Final' ? 'FINAL (Sah & Terverifikasi)' : 'DRAFT');
+  drawRow('Kode Verifikasi', docData.verificationCode || 'VERIF-VALID');
+
+  y += 4;
+  doc.setLineWidth(0.2);
+  doc.setDrawColor(200, 200, 200);
+  doc.line(18, y, pageWidth - 18, y);
+  y += 8;
+
+  // KETERANGAN / RINGKASAN
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('I. KETERANGAN & CATATAN DOKUMEN', 18, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  const ringkasan = docData.keterangan || `Dokumen ${docData.namaDoc} terdaftar secara sah dalam Repositori Arsip Digital Sekretariat DPRD ${docData.komisi}. Dokumen ini memiliki keabsahan resmi dan disimpan dalam basis data terintegrasi.`;
+  const splitKeterangan = doc.splitTextToSize(ringkasan, pageWidth - 36);
+  doc.text(splitKeterangan, 18, y);
+  y += (splitKeterangan.length * 5.5) + 10;
+
+  // INFORMASI PENGESAHAN / TTD
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('II. STATUS KEABSAHAN & TANDA TANGAN ELEKTRONIK', 18, y);
+  y += 6;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  const statusSah = docData.statusFinal === 'Final'
+    ? `Telah disahkan dan ditandatangani secara digital oleh ${docData.ttdBy || 'Pimpinan Komisi'} (${docData.ttdRole || 'Ketua Komisi'}) pada ${docData.ttdTime || 'Waktu Resmi'}.`
+    : 'Dokumen ini dalam status DRAFT dan belum disahkan secara digital.';
+  const splitStatus = doc.splitTextToSize(statusSah, pageWidth - 36);
+  doc.text(splitStatus, 18, y);
+  y += (splitStatus.length * 5.5) + 14;
+
+  // TANDA TANGAN & PENGESAHAN ELEKTRONIK
+  if (y > 215) {
+    doc.addPage();
+    y = 30;
+  }
+
+  const signX = pageWidth - 85;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Ditetapkan di: Sekretariat DPRD', signX, y);
+  doc.text(`Pada tanggal: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, signX, y + 5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(docData.ttdRole || 'Pimpinan / Ketua Komisi,', signX, y + 12);
+  
+  if (docData.ttdSignatureImage) {
+    try {
+      // Gambar Tanda Tangan Canvas
+      doc.addImage(docData.ttdSignatureImage, 'PNG', signX, y + 15, 52, 22);
+    } catch (e) {
+      console.warn('Gagal menyematkan gambar TTD di PDF:', e);
+    }
+  }
+
+  const namaY = y + 42;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.text(`<u>( ${docData.ttdBy || 'Dr. H. Bambang Yudi, S.H.'} )</u>`, signX, namaY);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  if (docData.statusFinal === 'Final') {
+    doc.setTextColor(5, 150, 105);
+    doc.text('✓ Ditandatangani Secara Elektronik (Digital)', signX, namaY + 5);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Waktu Sah: ${docData.ttdTime || '-'}`, signX, namaY + 9);
+  } else {
+    doc.setTextColor(220, 38, 38);
+    doc.text('[Dokumen Masih Berupa Draft / Belum Sah]', signX, namaY + 5);
+  }
+
+  // FOOTER
+  doc.setTextColor(148, 163, 184);
+  doc.setFontSize(8);
+  doc.text('SIM Kegiatan Komisi DPRD • Dokumen Arsip Digital Terverifikasi & Sah', 18, 285);
+  doc.text(`ID Verifikasi: ${docData.verificationCode || 'VERIF-VALID'}`, pageWidth - 18, 285, { align: 'right' });
+
+  const safeFilename = filename || `Arsip_Resmi_${(docData.namaDoc || 'Dokumen').replace(/[/\\?%*:|"<>]/g, '_')}.pdf`;
+  doc.save(safeFilename);
+};
+
 export const generateOfficialReportPdf = (title, items, filename = 'Laporan_Komisi_DPRD.pdf') => {
   const isAbsensi = title.toUpperCase().includes('PRESENSI');
   // Gunakan orientasi landscape untuk laporan presensi agar muat kolom GPS/Lokasi

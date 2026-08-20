@@ -212,10 +212,6 @@ export default function MenuScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    await userStorage.clearCurrentUser();
-    router.replace('/login');
-  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>

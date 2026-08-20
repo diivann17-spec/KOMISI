@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Eye, FileText, Plus, Printer, Search, Trash2, Upload, X, ShieldCheck, QrCode, Lock, CheckCircle2, FileCode, Edit3, Award, RefreshCw, AlertTriangle, Folder, FolderOpen } from 'lucide-react';
+import { Camera, Eye, FileText, Plus, Printer, Search, Trash2, Upload, X, ShieldCheck, QrCode, Lock, CheckCircle2, FileCode, Edit3, Award, RefreshCw, AlertTriangle, Folder, FolderOpen, Download, ExternalLink } from 'lucide-react';
 import WebCameraScanner from '../components/WebCameraScanner';
 import { DAFTAR_KOMISI, JENIS_DOKUMEN, KOMISI_COLORS } from '../constants/theme';
 import { shouldOpenInNewTab } from '../utils/arsipFiles';
-import { generateOfficialReportPdf, generateScanPdfFromImage } from '../utils/pdf';
+import { generateOfficialReportPdf, generateScanPdfFromImage, generateOfficialArsipDocumentPdf } from '../utils/pdf';
 import { arsipStorage, formatDate, notifikasiStorage, userStorage } from '../utils/storage';
 import { QRCodeSVG } from 'qrcode.react';
 import { logActivity } from '../utils/audit';
@@ -28,8 +28,14 @@ export default function ArsipPage() {
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState(null);
   const [verifModalDoc, setVerifModalDoc] = useState(null);
+  const [viewDocModal, setViewDocModal] = useState(null); // Modal viewer inline
+  const [signModalDoc, setSignModalDoc] = useState(null); // Modal Tanda Tangan Canvas
+  const [signerName, setSignerName] = useState('');
+  const [signerRole, setSignerRole] = useState('Ketua Komisi');
 
   const fileRef = useRef();
+  const sigCanvasRef = useRef(null);
+  const isDrawing = useRef(false);
 
   useEffect(() => {
     localStorage.setItem('sim_trash_arsip', JSON.stringify(trashDocs));
@@ -72,29 +78,44 @@ export default function ArsipPage() {
     setForm(p => ({ ...p, namaDoc: p.namaDoc || `Scan_Dokumen_${Date.now().toString().slice(-4)}` }));
   };
 
+  // Helper: baca File/Blob sebagai base64 data URL
+  const readFileAsDataUrl = (fileOrBlob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.readAsDataURL(fileOrBlob);
+  });
+
   const handleSave = async () => {
     if (!form.namaDoc.trim()) return alert('Nama dokumen wajib diisi.');
     setBusy(true);
 
     try {
-      let fileUrl = previewImage;
+      let fileUrl = null;
       let finalFileName = file?.name || (previewImage ? 'Hasil_Scan.pdf' : null);
       let finalFileSize = file?.size;
 
       if (previewImage) {
+        // Scan kamera → buat PDF → konversi ke base64
         const pdfData = await generateScanPdfFromImage(previewImage, form.namaDoc || 'Hasil_Scan');
         if (pdfData) {
-          fileUrl = pdfData.fileUrl;
+          // pdfData.fileUrl adalah blob:// — konversi ke base64 supaya persistent
+          const resp = await fetch(pdfData.fileUrl);
+          const blob = await resp.blob();
+          fileUrl = await readFileAsDataUrl(blob);
           finalFileName = pdfData.fileName;
           finalFileSize = pdfData.fileSize;
         }
       } else if (file) {
-        fileUrl = URL.createObjectURL(file);
+        // Upload file → konversi ke base64 supaya persistent setelah refresh
+        fileUrl = await readFileAsDataUrl(file);
+        finalFileName = file.name;
+        finalFileSize = file.size;
       }
 
       const autoArsipNo = `ARSIP/${form.komisi.replace(' ', '-')}/${new Date().getMonth() + 1}/${new Date().getFullYear()}/${Math.floor(100 + Math.random() * 900)}`;
 
-      arsipStorage.add({
+      await arsipStorage.add({
         ...form,
         nomorDoc: form.nomorDoc || autoArsipNo,
         tanggalDoc: form.tanggalDoc || new Date().toISOString().split('T')[0],
@@ -122,7 +143,7 @@ export default function ArsipPage() {
       load();
     } catch (error) {
       console.error(error);
-      alert('Gagal membuat PDF hasil scan. Silakan coba lagi.');
+      alert('Gagal menyimpan dokumen. Silakan coba lagi.');
     } finally {
       setBusy(false);
     }
@@ -155,32 +176,169 @@ export default function ArsipPage() {
     }
   };
 
-  const handleSignDocument = (doc) => {
-    const currentUser = userStorage.getCurrentUser() || { displayName: 'Ketua Komisi', roleLabel: 'Pimpinan' };
-    if (confirm(`Bubuhkan Tanda Tangan Digital pada dokumen "${doc.namaDoc}" sebagai ${currentUser.displayName}?`)) {
-      const nowStr = new Date().toLocaleString();
-      const updated = {
-        ...doc,
-        statusFinal: 'Final',
-        ttdStatus: 'Ditandatangani',
-        ttdBy: currentUser.displayName,
-        ttdRole: currentUser.roleLabel,
-        ttdTime: nowStr
-      };
-      arsipStorage.update(doc.id, updated);
-      logActivity('ARSIP_SIGN', `Penandatanganan digital dokumen ${doc.namaDoc} oleh ${currentUser.displayName}`);
-      alert(`✅ Dokumen "${doc.namaDoc}" berhasil ditandatangani dan disahkan menjadi FINAL!`);
-      setPreview(updated);
-      load();
+  const openSignModal = (doc) => {
+    const currentUser = userStorage.getCurrentUser() || { displayName: 'Dr. H. Bambang Yudi, S.H.', roleLabel: 'Ketua Komisi' };
+    setSignerName(currentUser.displayName || 'Dr. H. Bambang Yudi, S.H.');
+    setSignerRole(currentUser.roleLabel || 'Ketua Komisi');
+    setSignModalDoc(doc);
+    setTimeout(() => clearSignature(), 100);
+  };
+
+  const clearSignature = () => {
+    const canvas = sigCanvasRef.current;
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
   };
 
-  const handleOpen = (doc) => {
-    if (doc.fileUri && shouldOpenInNewTab(doc.fileUri)) {
-      window.open(doc.fileUri, '_blank', 'noopener,noreferrer');
-    } else {
-      setPreview(doc);
+  const startDrawing = (e) => {
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+    isDrawing.current = true;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.strokeStyle = '#1E3A8A';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
+  };
+
+  const draw = (e) => {
+    if (!isDrawing.current) return;
+    const canvas = sigCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const rect = canvas.getBoundingClientRect();
+    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+    ctx.lineTo(x, y);
+    ctx.stroke();
+  };
+
+  const stopDrawing = () => {
+    isDrawing.current = false;
+  };
+
+  const handleApplySignature = async () => {
+    if (!signModalDoc) return;
+    if (!signerName.trim()) return alert('Nama penandatangan wajib diisi.');
+
+    const canvas = sigCanvasRef.current;
+    const sigImage = canvas ? canvas.toDataURL('image/png') : null;
+
+    const nowStr = new Date().toLocaleString('id-ID', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const updated = {
+      ...signModalDoc,
+      statusFinal: 'Final',
+      ttdStatus: 'Ditandatangani',
+      ttdBy: signerName.trim(),
+      ttdRole: signerRole || 'Pimpinan Komisi',
+      ttdTime: `${nowStr} WIB`,
+      ttdSignatureImage: sigImage,
+      verificationCode: signModalDoc.verificationCode || `VERIF-${Date.now().toString(36).toUpperCase()}`
+    };
+
+    await arsipStorage.update(signModalDoc.id, updated);
+    logActivity('ARSIP_SIGN', `Penandatanganan digital dokumen ${signModalDoc.namaDoc} oleh ${signerName}`);
+    alert(`✅ Dokumen "${signModalDoc.namaDoc}" berhasil dibubuhi Tanda Tangan Digital dan berstatus FINAL & SAH!`);
+    
+    setPreview(updated);
+    setSignModalDoc(null);
+    load();
+  };
+
+  const handleSignDocument = (doc) => {
+    openSignModal(doc);
+  };
+
+  // Helper convert Data URI to Blob
+  const dataURItoBlob = (dataURI) => {
+    try {
+      const parts = dataURI.split(',');
+      const byteString = atob(parts[1]);
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mimeString = mimeMatch ? mimeMatch[1] : 'application/pdf';
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([ab], { type: mimeString });
+    } catch (e) {
+      console.error('Error dataURItoBlob:', e);
+      return null;
     }
+  };
+
+  // Buka file di modal penampil dokumen langsung di aplikasi (100% tidak blank)
+  const handleViewFile = (doc) => {
+    if (!doc.fileUri) {
+      generateOfficialArsipDocumentPdf(doc);
+      return;
+    }
+
+    let displayUrl = doc.fileUri;
+    if (doc.fileUri.startsWith('data:')) {
+      const blob = dataURItoBlob(doc.fileUri);
+      if (blob) {
+        displayUrl = URL.createObjectURL(blob);
+      }
+    }
+
+    setViewDocModal({
+      ...doc,
+      displayUrl,
+      isImage: doc.fileUri.startsWith('data:image') || /\.(jpg|jpeg|png|webp|gif)$/i.test(doc.fileName || ''),
+      isPdf: doc.fileUri.startsWith('data:application/pdf') || /\.pdf$/i.test(doc.fileName || '')
+    });
+  };
+
+  const handleDownloadDocument = (doc) => {
+    // Generate PDF Resmi DPRD yang sudah dibubuhi TTD Digital & QR Code
+    generateOfficialArsipDocumentPdf(doc);
+  };
+
+  const handleDownloadOriginalFile = (doc) => {
+    if (doc.fileUri) {
+      if (doc.fileUri.startsWith('data:')) {
+        const blob = dataURItoBlob(doc.fileUri);
+        if (blob) {
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = doc.fileName || `${(doc.namaDoc || 'Berkas_Asli').replace(/[/\\?%*:|"<>]/g, '_')}`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+          return;
+        }
+      } else if (doc.fileUri.startsWith('blob:') || doc.fileUri.startsWith('http') || doc.fileUri.startsWith('/')) {
+        const link = document.createElement('a');
+        link.href = doc.fileUri;
+        link.download = doc.fileName || `${(doc.namaDoc || 'Berkas_Asli').replace(/[/\\?%*:|"<>]/g, '_')}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+    }
+    generateOfficialArsipDocumentPdf(doc);
+  };
+
+  const handleOpen = (doc) => {
+    setPreview(doc);
   };
 
   const handlePrintReport = () => {
@@ -302,6 +460,9 @@ export default function ArsipPage() {
                     <div className="flex gap-1" onClick={e => e.stopPropagation()}>
                       <button className="btn btn-secondary btn-sm btn-icon" title="Lihat Detail & QR" onClick={() => handleOpen(doc)}>
                         <Eye size={14} />
+                      </button>
+                      <button className="btn btn-secondary btn-sm btn-icon" title="Download / Buka File" onClick={() => handleDownloadDocument(doc)}>
+                        <Download size={14} />
                       </button>
                       {!isFinal && (
                         <button className="btn btn-danger btn-sm btn-icon" title="Hapus ke Sampah" onClick={() => handleDeleteToTrash(doc)}>
@@ -459,11 +620,35 @@ export default function ArsipPage() {
                       <td style={{ padding: '6px 0', fontSize: 13 }}>{v}</td>
                     </tr>
                   ))}
+                  {preview.ttdSignatureImage && (
+                    <tr>
+                      <td style={{ padding: '6px 0', fontWeight: 600, fontSize: 13, color: 'var(--text-2)' }}>Tanda Tangan</td>
+                      <td style={{ padding: '6px 0' }}>
+                        <img
+                          src={preview.ttdSignatureImage}
+                          alt="Tanda Tangan Digital"
+                          style={{ height: 48, background: '#FFF', padding: 4, borderRadius: 4, border: '1px solid var(--border)' }}
+                        />
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ flexWrap: 'wrap', gap: 8 }}>
               <button className="btn btn-secondary" onClick={() => setPreview(null)}>Tutup</button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => handleViewFile(preview)}
+              >
+                <ExternalLink size={14} /> Buka File
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => handleDownloadDocument(preview)}
+              >
+                <Download size={14} /> {preview.fileUri ? 'Download File' : 'Download PDF Resmi'}
+              </button>
             </div>
           </div>
         </div>
@@ -550,6 +735,138 @@ export default function ArsipPage() {
             <button className="btn btn-primary w-full" onClick={() => setVerifModalDoc(null)}>
               Tutup Hasil Verifikasi
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL IN-APP DOCUMENT VIEWER (100% BEBAS BLANK HITAM) */}
+      {viewDocModal && (
+        <div className="modal-overlay" onClick={() => setViewDocModal(null)} style={{ zIndex: 1000 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 840, width: '92vw', height: '88vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header flex items-center justify-between" style={{ padding: '12px 18px' }}>
+              <div className="flex items-center gap-2">
+                <FileText size={20} color="var(--blue)" />
+                <div>
+                  <h3 className="modal-title" style={{ fontSize: 15 }}>{viewDocModal.namaDoc}</h3>
+                  <div style={{ fontSize: 11, color: 'var(--text-3)' }}>{viewDocModal.nomorDoc} · {viewDocModal.komisi}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => handleDownloadDocument(viewDocModal)}
+                >
+                  <Download size={14} /> Download
+                </button>
+                {viewDocModal.displayUrl && (
+                  <a
+                    href={viewDocModal.displayUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                  >
+                    <ExternalLink size={14} /> Tab Baru
+                  </a>
+                )}
+                <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setViewDocModal(null)}>
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="modal-body" style={{ flex: 1, padding: 0, overflow: 'hidden', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {viewDocModal.isImage ? (
+                <div style={{ overflow: 'auto', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                  <img
+                    src={viewDocModal.displayUrl}
+                    alt={viewDocModal.namaDoc}
+                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 6, boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
+                  />
+                </div>
+              ) : (
+                <iframe
+                  src={viewDocModal.displayUrl}
+                  title={viewDocModal.namaDoc}
+                  style={{ width: '100%', height: '100%', border: 'none', background: '#FFFFFF' }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL TANDA TANGAN DIGITAL INTERAKTIF (FITUR 22) */}
+      {signModalDoc && (
+        <div className="modal-overlay" onClick={() => setSignModalDoc(null)} style={{ zIndex: 1100 }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 480 }}>
+            <div className="modal-header">
+              <div className="flex items-center gap-2">
+                <Edit3 size={18} color="var(--blue)" />
+                <h3 className="modal-title" style={{ fontSize: 16 }}>Tanda Tangan Digital Resmi</h3>
+              </div>
+              <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setSignModalDoc(null)}>
+                <X size={16} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '10px 12px', borderRadius: 8, marginBottom: 14, fontSize: 12, color: '#1E40AF' }}>
+                Dokumen: <strong>{signModalDoc.namaDoc}</strong> ({signModalDoc.komisi})
+              </div>
+
+              <div className="grid-2 mb-3">
+                <div className="form-group">
+                  <label className="form-label">Nama Pejabat / Pimpinan *</label>
+                  <input
+                    className="form-input"
+                    value={signerName}
+                    onChange={e => setSignerName(e.target.value)}
+                    placeholder="Nama lengkap pimpinan..."
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Jabatan / Role</label>
+                  <input
+                    className="form-input"
+                    value={signerRole}
+                    onChange={e => setSignerRole(e.target.value)}
+                    placeholder="Jabatan resmi..."
+                  />
+                </div>
+              </div>
+
+              <div className="form-group">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="form-label mb-0">Goreskan Tanda Tangan (Canvas)</label>
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={clearSignature} style={{ fontSize: 11, padding: '2px 6px' }}>
+                    <RefreshCw size={11} /> Bersihkan
+                  </button>
+                </div>
+                <div style={{ border: '2px dashed var(--blue)', borderRadius: 8, overflow: 'hidden', background: '#FFFFFF', touchAction: 'none' }}>
+                  <canvas
+                    ref={sigCanvasRef}
+                    width={440}
+                    height={160}
+                    style={{ width: '100%', height: 160, display: 'block', cursor: 'crosshair' }}
+                    onMouseDown={startDrawing}
+                    onMouseMove={draw}
+                    onMouseUp={stopDrawing}
+                    onMouseLeave={stopDrawing}
+                    onTouchStart={startDrawing}
+                    onTouchMove={draw}
+                    onTouchEnd={stopDrawing}
+                  />
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, textAlign: 'center' }}>
+                  ✍️ Gunakan mouse, stylus, atau sentuhan jari pada kotak di atas.
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setSignModalDoc(null)}>Batal</button>
+              <button className="btn btn-primary" onClick={handleApplySignature}>
+                <CheckCircle2 size={15} /> Sahkan & Bubuhkan TTD
+              </button>
+            </div>
           </div>
         </div>
       )}

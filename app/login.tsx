@@ -103,7 +103,7 @@ export default function LoginScreen() {
     );
 
     if (match) {
-      await userStorage.saveCurrentUser(match);
+      await userStorage.setCurrentUser(match);
       router.replace('/(tabs)');
     } else {
       Alert.alert('Login gagal', 'Username atau password salah.');

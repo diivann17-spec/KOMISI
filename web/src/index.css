@@ -584,8 +584,10 @@ button, input, select, textarea {
 ════════════════════════════════════════════════ */
 .table-wrapper {
   overflow-x: auto;
+  overflow-y: auto;
   border-radius: var(--radius);
   -webkit-overflow-scrolling: touch;
+  max-height: calc(100vh - 340px);
 }
 
 table {
@@ -608,6 +610,7 @@ thead th {
   white-space: nowrap;
   position: sticky;
   top: 0;
+  z-index: 2;
 }
 
 tbody td {
