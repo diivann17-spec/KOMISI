@@ -28,11 +28,21 @@ export default function NotifikasiPage() {
   const [notifList, setNotifList] = useState([]);
   const [filterTab, setFilterTab] = useState('semua');
 
+  const [deletedIds, setDeletedIds] = useState(() => {
+    const saved = localStorage.getItem('sim_deleted_notif_ids');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sim_deleted_notif_ids', JSON.stringify(deletedIds));
+  }, [deletedIds]);
+
   const loadData = () => {
     const list = notifikasiStorage.getAll();
-    // Combine with security alerts
+    const savedDeleted = JSON.parse(localStorage.getItem('sim_deleted_notif_ids') || '[]');
     const merged = [...INITIAL_SECURITY_ALERTS, ...list];
-    setNotifList(merged);
+    const filtered = merged.filter(n => !savedDeleted.includes(n.id));
+    setNotifList(filtered);
   };
 
   useEffect(loadData, []);
@@ -43,8 +53,11 @@ export default function NotifikasiPage() {
   };
 
   const handleDelete = (id) => {
-    notifikasiStorage.delete(id);
-    setNotifList(prev => prev.filter(n => n.id !== id));
+    if (confirm('Hapus notifikasi ini?')) {
+      notifikasiStorage.delete(id);
+      setDeletedIds(prev => [...prev, id]);
+      setNotifList(prev => prev.filter(n => n.id !== id));
+    }
   };
 
   const handleSimulateFraud = () => {

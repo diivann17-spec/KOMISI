@@ -10,16 +10,26 @@ import LoginPage from './pages/Login';
 import MenuPage from './pages/Menu';
 import NotifikasiPage from './pages/Notifikasi';
 import PresensiPublicPage from './pages/PresensiPublic';
+import VerifikasiTtdPublicPage from './pages/VerifikasiTtdPublic';
 import RapatPage from './pages/Rapat';
 import SuratPage from './pages/Surat';
 import FasilitasPage from './pages/Fasilitas';
 import TamuPage from './pages/Tamu';
 import AnggaranPage from './pages/Anggaran';
 import LaporanPage from './pages/Laporan';
-import { notifikasiStorage, seedMockData, userStorage } from './utils/storage';
+import PengingatPage from './pages/Pengingat';
+import PesanPage from './pages/Pesan';
+import VotingPage from './pages/Voting';
+import LegislasiPage from './pages/Legislasi';
+import { notifikasiStorage, pengingatStorage, jadwalStorage, seedMockData, userStorage } from './utils/storage';
 
 function ProtectedLayout() {
-  const user = userStorage.getCurrentUser();
+  let user = userStorage.getCurrentUser();
+  if (!user) {
+    seedMockData();
+    user = userStorage.getCurrentUser();
+  }
+
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState(null);
@@ -30,6 +40,55 @@ function ProtectedLayout() {
     seedMockData();
     refreshUnread();
   }, [location]);
+
+  // Background alarm checker — runs every 60 seconds
+  useEffect(() => {
+    const checkAlarms = () => {
+      const now = new Date();
+      const fired = JSON.parse(localStorage.getItem('sim_fired_alarms') || '[]');
+
+      // Cek pengingat manual
+      const reminders = pengingatStorage.getAll();
+      reminders.forEach(item => {
+        if (item.selesai || fired.includes(item.id)) return;
+        const due = new Date(`${item.tanggal}T${item.waktu}`);
+        const diff = due - now;
+        if (diff >= 0 && diff <= 60000) {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(`⏰ ${item.judul}`, { body: item.catatan || 'Pengingat jadwal DPRD', tag: item.id });
+          }
+          window.dispatchEvent(new CustomEvent('new-notification', {
+            detail: { id: item.id, judul: `⏰ ${item.judul}`, pesan: item.catatan || 'Pengingat telah tiba.' },
+          }));
+          localStorage.setItem('sim_fired_alarms', JSON.stringify([...fired, item.id]));
+        }
+      });
+
+      // Cek jadwal H-0 (30 menit sebelum mulai)
+      const jadwalFired = JSON.parse(localStorage.getItem('sim_fired_jadwal') || '[]');
+      const jadwals = jadwalStorage.getAll();
+      jadwals.forEach(j => {
+        if (!j.tanggal || !j.waktuMulai) return;
+        const alarmKey = `jadwal_${j.id}`;
+        if (jadwalFired.includes(alarmKey)) return;
+        const due = new Date(`${j.tanggal}T${j.waktuMulai}`);
+        const diff = due - now;
+        if (diff >= 0 && diff <= 1800000) { // 30 menit
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(`📅 Segera Dimulai: ${j.judul}`, { body: `${j.lokasi} — ${j.waktuMulai} WIB`, tag: alarmKey });
+          }
+          window.dispatchEvent(new CustomEvent('new-notification', {
+            detail: { id: alarmKey, judul: `📅 Segera Dimulai: ${j.judul}`, pesan: `${j.lokasi} — ${j.waktuMulai} WIB` },
+          }));
+          localStorage.setItem('sim_fired_jadwal', JSON.stringify([...jadwalFired, alarmKey]));
+        }
+      });
+    };
+
+    checkAlarms();
+    const interval = setInterval(checkAlarms, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     const handleStorageUpdate = () => refreshUnread();
@@ -89,7 +148,12 @@ function ProtectedLayout() {
       case '/tamu': return { title: 'Tamu & Narasumber', sub: 'Manajemen undangan eksternal' };
       case '/anggaran': return { title: 'Manajemen Anggaran', sub: 'Pemantauan alokasi dan realisasi biaya' };
       case '/laporan': return { title: 'Laporan & Dashboard', sub: 'Statistik eksekutif dan export data' };
-      default: return { title: 'SIM Kegiatan DPRD', sub: '' };    }
+      case '/pengingat': return { title: 'Pengingat & Alarm Otomatis', sub: 'Kelola alarm jadwal dan pengingat kegiatan DPRD' };
+      case '/pesan': return { title: 'Pesan Internal & Disposisi', sub: 'Komunikasi internal anggota DPRD dan sekretariat' };
+      case '/voting': return { title: 'Voting & Pengambilan Suara', sub: 'Sesi voting digital per agenda rapat dan sidang komisi' };
+      case '/legislasi': return { title: 'Produk Legislasi', sub: 'Tracking Perda, Raperda & Pansus — dari inisiasi hingga pengesahan' };
+      default: return { title: 'SIM Kegiatan DPRD', sub: '' };
+    }
   };
 
   const pageMeta = getTitle();
@@ -149,6 +213,10 @@ function ProtectedLayout() {
           <Route path="/tamu" element={<TamuPage />} />
           <Route path="/anggaran" element={<AnggaranPage />} />
           <Route path="/laporan" element={<LaporanPage />} />
+          <Route path="/pengingat" element={<PengingatPage />} />
+          <Route path="/pesan" element={<PesanPage />} />
+          <Route path="/voting" element={<VotingPage />} />
+          <Route path="/legislasi" element={<LegislasiPage />} />
         </Routes>
       </div>
     </div>
@@ -156,11 +224,16 @@ function ProtectedLayout() {
 }
 
 export default function App() {
+  useEffect(() => {
+    seedMockData();
+  }, []);
+
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/presensi" element={<PresensiPublicPage />} />
+        <Route path="/verifikasi-ttd" element={<VerifikasiTtdPublicPage />} />
         <Route path="/*" element={<ProtectedLayout />} />
       </Routes>
     </BrowserRouter>

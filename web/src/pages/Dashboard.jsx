@@ -7,6 +7,7 @@ import {
   MapPin,
   MessageSquare,
   Sparkles,
+  Flag,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -69,13 +70,13 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 0 }}>
 
       {/* ── Hero Banner ── */}
       <div style={{
         background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 60%, #172554 100%)',
         borderRadius: 'var(--radius-xl)',
-        padding: '24px 28px',
+        padding: '28px 32px',
         color: '#fff',
         position: 'relative',
         overflow: 'hidden',
@@ -86,17 +87,18 @@ export default function Dashboard() {
         alignItems: 'center',
         justifyContent: 'space-between',
         flexWrap: 'wrap',
-        gap: 16
+        gap: 20,
+        minHeight: 130
       }}>
-        {/* decorative ambient glow */}
+        {/* Ambient Glow Effects */}
         <div style={{
-          position: 'absolute', top: -30, right: 120, width: 160, height: 160,
-          borderRadius: '50%', background: 'rgba(37,99,235,0.2)', filter: 'blur(45px)',
+          position: 'absolute', top: -30, right: 120, width: 180, height: 180,
+          borderRadius: '50%', background: 'rgba(37,99,235,0.25)', filter: 'blur(50px)',
           pointerEvents: 'none',
         }} />
         <div style={{
-          position: 'absolute', bottom: -20, left: 60, width: 130, height: 130,
-          borderRadius: '50%', background: 'rgba(234,179,8,0.12)', filter: 'blur(35px)',
+          position: 'absolute', bottom: -20, left: 60, width: 140, height: 140,
+          borderRadius: '50%', background: 'rgba(234,179,8,0.15)', filter: 'blur(40px)',
           pointerEvents: 'none',
         }} />
 
@@ -104,37 +106,41 @@ export default function Dashboard() {
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '4px 12px', borderRadius: 99,
-            background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.15)',
-            fontSize: 11, fontWeight: 700, color: '#FCD34D', marginBottom: 12,
+            background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.18)',
+            fontSize: 11, fontWeight: 800, color: '#FCD34D', marginBottom: 10,
           }}>
             <Sparkles size={13} /> SIM Kegiatan Komisi DPRD
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', marginBottom: 6, letterSpacing: '-0.3px', lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: 24, fontWeight: 900, color: '#fff', marginBottom: 6, letterSpacing: '-0.3px', lineHeight: 1.25 }}>
             {greeting()}, {user?.displayName || 'Petugas Komisi'} 👋
           </h1>
-          <p style={{ fontSize: 13, color: '#94A3B8', fontWeight: 500, margin: 0 }}>
-            {user?.roleLabel || 'Petugas Komisi'} &nbsp;•&nbsp;{' '}
-            {new Date().toLocaleDateString('id-ID', {
-              weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-            })}
+          <p style={{ fontSize: 13, color: '#94A3B8', fontWeight: 500, margin: 0, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>{user?.roleLabel || 'Sekretariat DPRD'}</span>
+            <span>•</span>
+            <span>
+              {new Date().toLocaleDateString('id-ID', {
+                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+              })}
+            </span>
           </p>
         </div>
 
         <div style={{
           background: 'rgba(255,255,255,0.08)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: 'var(--radius)',
-          padding: '14px 22px',
+          border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px 26px',
           textAlign: 'center',
           flexShrink: 0,
           position: 'relative',
-          zIndex: 1
+          zIndex: 1,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
         }}>
-          <div style={{ fontSize: 32, fontWeight: 900, color: '#FCD34D', lineHeight: 1 }}>
+          <div style={{ fontSize: 34, fontWeight: 900, color: '#FCD34D', lineHeight: 1 }}>
             {todayAgenda.length}
           </div>
-          <div style={{ fontSize: 11, color: '#E2E8F0', marginTop: 4, fontWeight: 600, letterSpacing: 0.2 }}>
-            Agenda hari ini
+          <div style={{ fontSize: 11.5, color: '#E2E8F0', marginTop: 6, fontWeight: 700, letterSpacing: 0.2 }}>
+            Agenda Hari Ini
           </div>
         </div>
       </div>
@@ -198,91 +204,83 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div style={{ padding: '8px 18px 16px', flex: 1 }}>
+          <div className="card-body" style={{ flex: 1 }}>
             {todayAgenda.length === 0 ? (
-              <div className="empty-state" style={{ padding: '36px 12px' }}>
-                <Calendar size={36} className="icon" />
-                <h3>Tidak ada agenda hari ini</h3>
-                <p>Tambahkan jadwal kegiatan melalui menu Jadwal.</p>
+              <div style={{ textAlign: 'center', padding: '32px 16px', color: 'var(--text-4)' }}>
+                <Calendar size={36} style={{ margin: '0 auto 8px', opacity: 0.5 }} />
+                <p style={{ fontSize: 13, color: 'var(--text-3)' }}>Tidak ada agenda rapat terjadwal untuk hari ini.</p>
               </div>
             ) : (
-              todayAgenda.map((item) => {
-                const color = KOMISI_COLORS[item.komisi] || { accent: '#2563EB', bg: 'var(--blue-s)', text: 'var(--blue)' };
-                return (
-                  <div key={item.id} className="agenda-item">
-                    <div className="agenda-time">{item.waktuMulai}</div>
-                    <div className="agenda-dot" style={{ background: color.accent }} />
-                    <div className="agenda-body">
-                      <div className="agenda-title">{item.judul}</div>
-                      <div className="agenda-meta" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                          <MapPin size={11} /> {item.lokasi}
-                        </span>
-                        <span
-                          style={{
-                            padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 700,
-                            background: color.bg, color: color.text,
-                          }}
-                        >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {todayAgenda.map((item) => {
+                  const c = KOMISI_COLORS[item.komisi] || { bg: '#F1F5F9', text: '#475569', accent: '#64748B' };
+                  return (
+                    <div
+                      key={item.id}
+                      style={{
+                        padding: '12px 14px',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--surface2)',
+                        borderLeft: `4px solid ${c.accent}`,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <span className="badge" style={{ background: c.bg, color: c.text, fontSize: 10 }}>
                           {item.komisi}
                         </span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--blue)' }}>
+                          {item.waktuMulai} – {item.waktuSelesai}
+                        </span>
                       </div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>{item.judul}</div>
+                      {item.lokasi && (
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <MapPin size={11} /> {item.lokasi}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
 
-        {/* Komisi Quick Overview */}
-        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* Akses Cepat Modul */}
+        <div className="card">
           <div className="card-header">
             <div>
-              <div className="card-title">🏛️ Komisi DPRD</div>
-              <div className="card-sub">Bidang &amp; jumlah agenda</div>
+              <div className="card-title">🚀 Akses Cepat Modul</div>
+              <div className="card-sub">Pintas navigasi fitur SIM Komisi DPRD</div>
             </div>
           </div>
-
-          <div style={{ padding: '8px 10px', flex: 1 }}>
-            {DAFTAR_KOMISI.map((k) => {
-              const c = KOMISI_COLORS[k.nama] || {};
-              const count = jadwalStorage.getAll().filter((j) => j.komisi === k.nama).length;
-              return (
-                <div
-                  key={k.id}
-                  onClick={() => navigate('/jadwal')}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
-                    transition: 'background 0.12s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'var(--surface2)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div style={{
-                    width: 28, height: 28, borderRadius: 7,
-                    background: c.bg || 'var(--surface2)', color: c.text || 'var(--text)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontWeight: 900, fontSize: 11, flexShrink: 0,
-                  }}>
-                    {k.nama.split(' ')[1]}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{k.nama}</div>
-                    <div style={{ fontSize: 10, color: 'var(--text-4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {k.bidang}
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 800, padding: '2px 8px', borderRadius: 99,
-                    background: c.bg || 'var(--surface2)', color: c.accent || 'var(--blue)', flexShrink: 0,
-                  }}>
-                    {count}
-                  </span>
-                </div>
-              );
-            })}
+          <div className="card-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            {[
+              { title: 'Jadwal Komisi', sub: 'Agenda & Kalender', path: '/jadwal', bg: '#EFF6FF', color: '#2563EB' },
+              { title: 'Arsip Surat', sub: 'Dokumen Digital', path: '/arsip', bg: '#ECFDF5', color: '#10B981' },
+              { title: 'Ruangan & Fasilitas', sub: 'Booking & Status', path: '/fasilitas', bg: '#FEF3C7', color: '#D97706' },
+              { title: 'Presensi Rapat', sub: 'Absensi Anggota', path: '/absensi', bg: '#F3E8FF', color: '#9333EA' },
+            ].map((mod, idx) => (
+              <div
+                key={idx}
+                onClick={() => navigate(mod.path)}
+                style={{
+                  background: mod.bg,
+                  borderRadius: 'var(--radius)',
+                  padding: 16,
+                  cursor: 'pointer',
+                  transition: 'transform 0.12s ease',
+                  border: '1px solid rgba(0,0,0,0.05)'
+                }}
+                className="hover:scale-[1.02]"
+              >
+                <div style={{ fontSize: 14, fontWeight: 800, color: mod.color }}>{mod.title}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 2 }}>{mod.sub}</div>
+              </div>
+            ))}
           </div>
         </div>
 

@@ -7,19 +7,66 @@ import {
   SafeAreaView,
   TouchableOpacity,
   StatusBar,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, PRIMARY, Spacing, Radius, FontSizes, Shadows, KOMISI_COLORS } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import KomisiCard from '@/components/KomisiCard';
-import { DAFTAR_KOMISI, getAnggotaByKomisi } from '@/constants/data';
+import { DAFTAR_KOMISI, MOCK_ANGGOTA } from '@/constants/data';
 
 export default function KomisiScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const theme = Colors[colorScheme];
 
   const [selectedKomisi, setSelectedKomisi] = useState(DAFTAR_KOMISI[0].nama);
-  const currentAnggotaList = getAnggotaByKomisi(selectedKomisi);
+  const [anggotaList, setAnggotaList] = useState(MOCK_ANGGOTA);
+
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [newNama, setNewNama] = useState('');
+  const [newJabatan, setNewJabatan] = useState('Anggota');
+  const [newKomisi, setNewKomisi] = useState('Komisi I');
+
+  const currentAnggotaList = anggotaList.filter(a => a.komisi === selectedKomisi);
+
+  const handleAddAnggota = () => {
+    if (!newNama.trim()) {
+      Alert.alert('Peringatan', 'Nama anggota tidak boleh kosong.');
+      return;
+    }
+    const newEntry = {
+      id: `a-${Date.now()}`,
+      nama: newNama.trim(),
+      jabatan: newJabatan,
+      komisi: newKomisi,
+    };
+    setAnggotaList([newEntry, ...anggotaList]);
+    setSelectedKomisi(newKomisi);
+    setShowModal(false);
+    setNewNama('');
+    setNewJabatan('Anggota');
+    Alert.alert('Berhasil', `Anggota baru berhasil ditambahkan ke ${newKomisi}.`);
+  };
+
+  const handleDeleteAnggota = (anggota) => {
+    Alert.alert(
+      'Hapus Anggota',
+      `Apakah Anda yakin ingin menghapus ${anggota.nama} dari ${anggota.komisi}?`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus',
+          style: 'destructive',
+          onPress: () => {
+            setAnggotaList(anggotaList.filter(a => a.id !== anggota.id));
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
@@ -27,8 +74,22 @@ export default function KomisiScreen() {
 
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: PRIMARY.navy }]}>
-        <Text style={styles.headerTitle}>Komisi I – V DPRD</Text>
-        <Text style={styles.headerSub}>Direktori Komisi, Bidang Tugas & Anggota Dewan</Text>
+        <View style={styles.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerTitle}>Komisi I – IV DPRD</Text>
+            <Text style={styles.headerSub}>Direktori Komisi, Bidang Tugas & Anggota Dewan</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.addBtn}
+            onPress={() => {
+              setNewKomisi(selectedKomisi);
+              setShowModal(true);
+            }}
+          >
+            <MaterialIcons name="person-add" size={18} color="#0F172A" />
+            <Text style={styles.addBtnText}>+ Tambah</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -38,7 +99,7 @@ export default function KomisiScreen() {
           <KomisiCard
             key={item.id}
             item={item}
-            totalAnggota={getAnggotaByKomisi(item.nama).length}
+            totalAnggota={anggotaList.filter(a => a.komisi === item.nama).length}
             totalJadwal={3}
             onPress={() => setSelectedKomisi(item.nama)}
           />
@@ -55,49 +116,137 @@ export default function KomisiScreen() {
         </View>
 
         <View style={[styles.anggotaCard, { backgroundColor: theme.surface, borderColor: theme.border }, Shadows.md]}>
-          {currentAnggotaList.map((anggota, idx) => {
-            const isKetua = anggota.jabatan === 'Ketua';
-            const isWakil = anggota.jabatan === 'Wakil Ketua';
-            const isSekretaris = anggota.jabatan === 'Sekretaris';
+          {currentAnggotaList.length === 0 ? (
+            <Text style={{ textAlign: 'center', color: theme.textSecondary, padding: Spacing.md }}>
+              Belum ada anggota terdaftar untuk {selectedKomisi}.
+            </Text>
+          ) : (
+            currentAnggotaList.map((anggota, idx) => {
+              const isKetua = anggota.jabatan === 'Ketua';
+              const isWakil = anggota.jabatan === 'Wakil Ketua';
+              const isSekretaris = anggota.jabatan === 'Sekretaris';
 
-            let badgeColor = theme.textSecondary;
-            let badgeBg = theme.surfaceSecondary;
+              let badgeColor = theme.textSecondary;
+              let badgeBg = theme.surfaceSecondary;
 
-            if (isKetua) {
-              badgeColor = '#D97706';
-              badgeBg = '#FEF3C7';
-            } else if (isWakil || isSekretaris) {
-              badgeColor = PRIMARY.blue;
-              badgeBg = '#DBEAFE';
-            }
+              if (isKetua) {
+                badgeColor = '#D97706';
+                badgeBg = '#FEF3C7';
+              } else if (isWakil || isSekretaris) {
+                badgeColor = PRIMARY.blue;
+                badgeBg = '#DBEAFE';
+              }
 
-            return (
-              <View
-                key={anggota.id}
-                style={[
-                  styles.anggotaRow,
-                  idx < currentAnggotaList.length - 1 && {
-                    borderBottomWidth: 1,
-                    borderBottomColor: theme.borderLight,
-                  },
-                ]}
-              >
-                <View style={[styles.avatar, { backgroundColor: PRIMARY.navy }]}>
-                  <Text style={styles.avatarText}>{anggota.nama.charAt(0)}</Text>
-                </View>
-                <View style={styles.anggotaInfo}>
-                  <Text style={[styles.anggotaNama, { color: theme.text }]}>{anggota.nama}</Text>
-                  <View style={[styles.jabatanBadge, { backgroundColor: badgeBg }]}>
-                    <Text style={[styles.jabatanText, { color: badgeColor }]}>
-                      {anggota.jabatan}
-                    </Text>
+              return (
+                <View
+                  key={anggota.id}
+                  style={[
+                    styles.anggotaRow,
+                    idx < currentAnggotaList.length - 1 && {
+                      borderBottomWidth: 1,
+                      borderBottomColor: theme.borderLight,
+                    },
+                  ]}
+                >
+                  <View style={[styles.avatar, { backgroundColor: PRIMARY.navy }]}>
+                    <Text style={styles.avatarText}>{anggota.nama.charAt(0)}</Text>
                   </View>
+                  <View style={styles.anggotaInfo}>
+                    <Text style={[styles.anggotaNama, { color: theme.text }]}>{anggota.nama}</Text>
+                    <View style={[styles.jabatanBadge, { backgroundColor: badgeBg }]}>
+                      <Text style={[styles.jabatanText, { color: badgeColor }]}>
+                        {anggota.jabatan}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={{ padding: 4 }}
+                    onPress={() => handleDeleteAnggota(anggota)}
+                  >
+                    <MaterialIcons name="delete-outline" size={20} color="#EF4444" />
+                  </TouchableOpacity>
                 </View>
-              </View>
-            );
-          })}
+              );
+            })
+          )}
         </View>
       </ScrollView>
+
+      {/* MODAL TAMBAH ANGGOTA KOMISI */}
+      <Modal visible={showModal} transparent animationType="fade">
+        <View style={styles.modalBg}>
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>👤 Tambah User Anggota Komisi</Text>
+
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Nama Lengkap & Gelar</Text>
+            <TextInput
+              style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.background }]}
+              placeholder="Contoh: Dr. H. Ahmad Sudirman, S.H."
+              placeholderTextColor="#94A3B8"
+              value={newNama}
+              onChangeText={setNewNama}
+            />
+
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Pilih Komisi (1 - 4)</Text>
+            <View style={styles.komisiPills}>
+              {['Komisi I', 'Komisi II', 'Komisi III', 'Komisi IV'].map((k) => (
+                <TouchableOpacity
+                  key={k}
+                  style={[
+                    styles.komisiPill,
+                    newKomisi === k ? { backgroundColor: PRIMARY.blue } : { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={() => setNewKomisi(k)}
+                >
+                  <Text
+                    style={[
+                      styles.komisiPillText,
+                      newKomisi === k ? { color: '#FFF', fontWeight: '800' } : { color: theme.text },
+                    ]}
+                  >
+                    {k}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={[styles.label, { color: theme.textSecondary }]}>Jabatan dalam Komisi</Text>
+            <View style={styles.komisiPills}>
+              {['Ketua', 'Wakil Ketua', 'Sekretaris', 'Anggota'].map((j) => (
+                <TouchableOpacity
+                  key={j}
+                  style={[
+                    styles.komisiPill,
+                    newJabatan === j ? { backgroundColor: PRIMARY.gold } : { backgroundColor: theme.surfaceSecondary },
+                  ]}
+                  onPress={() => setNewJabatan(j)}
+                >
+                  <Text
+                    style={[
+                      styles.komisiPillText,
+                      newJabatan === j ? { color: '#0F172A', fontWeight: '800' } : { color: theme.text },
+                    ]}
+                  >
+                    {j}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.btnCancel, { borderColor: theme.border }]}
+                onPress={() => setShowModal(false)}
+              >
+                <Text style={{ color: theme.text, fontWeight: '700' }}>Batal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnSubmit} onPress={handleAddAnggota}>
+                <Text style={{ color: '#FFF', fontWeight: '800' }}>Simpan Anggota</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -113,6 +262,11 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: Radius.xl,
     borderBottomRightRadius: Radius.xl,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   headerTitle: {
     fontSize: FontSizes.xl,
     fontWeight: '800',
@@ -122,6 +276,20 @@ const styles = StyleSheet.create({
     fontSize: FontSizes.xs,
     color: '#94A3B8',
     marginTop: 2,
+  },
+  addBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F59E0B',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+    borderRadius: Radius.full,
+  },
+  addBtnText: {
+    color: '#0F172A',
+    fontWeight: '800',
+    fontSize: FontSizes.xs,
   },
   content: {
     padding: Spacing.base,
@@ -178,5 +346,67 @@ const styles = StyleSheet.create({
   jabatanText: {
     fontSize: FontSizes.xs,
     fontWeight: '700',
+  },
+  modalBg: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.base,
+  },
+  modalContent: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: Radius.xl,
+    padding: Spacing.lg,
+    gap: Spacing.sm,
+  },
+  modalTitle: {
+    fontSize: FontSizes.lg,
+    fontWeight: '800',
+    marginBottom: Spacing.sm,
+  },
+  label: {
+    fontSize: FontSizes.xs,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    fontSize: FontSizes.base,
+  },
+  komisiPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  komisiPill: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    borderRadius: Radius.full,
+  },
+  komisiPillText: {
+    fontSize: FontSizes.xs,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: Spacing.sm,
+    marginTop: Spacing.lg,
+  },
+  btnCancel: {
+    borderWidth: 1,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  btnSubmit: {
+    backgroundColor: PRIMARY.blue,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderRadius: Radius.md,
   },
 });

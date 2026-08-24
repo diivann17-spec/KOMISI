@@ -72,51 +72,62 @@ export default function PresensiPublicPage() {
     setGpsStatus('requesting');
     setGpsErrorMsg('');
 
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const { latitude, longitude, accuracy } = pos.coords;
-        setKoordinat({ lat: latitude, lng: longitude });
-        setGpsAccuracy(Math.round(accuracy));
-        setGpsStatus('active');
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 25000,
+      maximumAge: 0
+    };
 
-        if (kegiatan?.lat && kegiatan?.lng) {
-          const j = hitungJarak(latitude, longitude, kegiatan.lat, kegiatan.lng);
-          setJarak(Math.round(j));
-        }
+    const handleSuccess = async (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      setKoordinat({ lat: latitude, lng: longitude });
+      setGpsAccuracy(Math.round(accuracy));
+      setGpsStatus('active');
 
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
-            { headers: { 'User-Agent': 'DPRD-SIM-Kegiatan-App' } }
-          );
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.display_name) {
-              setAlamatGps(data.display_name);
-            }
+      if (kegiatan?.lat && kegiatan?.lng) {
+        const j = hitungJarak(latitude, longitude, kegiatan.lat, kegiatan.lng);
+        setJarak(Math.round(j));
+      }
+
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+          { headers: { 'User-Agent': 'DPRD-SIM-Kegiatan-App' } }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.display_name) {
+            setAlamatGps(data.display_name);
           }
-        } catch {
-          setAlamatGps(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
         }
-      },
-      (err) => {
-        console.warn('GPS Geolocation Error:', err);
-        if (err.code === 1) {
-          setGpsStatus('denied');
-          setGpsErrorMsg('Izin akses lokasi GPS ditolak.');
-        } else if (err.code === 2) {
-          setGpsStatus('unavailable');
-          setGpsErrorMsg('Posisi GPS tidak dapat diperoleh. Pastikan GPS HP aktif.');
-        } else if (err.code === 3) {
-          setGpsStatus('unavailable');
-          setGpsErrorMsg('Waktu permintaan GPS habis (Timeout).');
-        } else {
-          setGpsStatus('unavailable');
-          setGpsErrorMsg(err.message || 'Gagal memperoleh koordinat GPS.');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
-    );
+      } catch {
+        setAlamatGps(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      }
+    };
+
+    const handleError = (err) => {
+      console.warn('GPS Geolocation Error:', err);
+      if (err.code === 1) {
+        setGpsStatus('denied');
+        setGpsErrorMsg('Izin akses lokasi GPS ditolak. Silakan izinkan akses lokasi di browser HP Anda.');
+      } else if (err.code === 2) {
+        setGpsStatus('unavailable');
+        setGpsErrorMsg('Posisi GPS tidak dapat diperoleh. Pastikan Lokasi/GPS HP dalam mode Akurasi Tinggi.');
+      } else if (err.code === 3) {
+        setGpsStatus('unavailable');
+        setGpsErrorMsg('Waktu permintaan GPS habis (Timeout). Mencoba mengambil koordinat kembali...');
+      } else {
+        setGpsStatus('unavailable');
+        setGpsErrorMsg(err.message || 'Gagal memperoleh koordinat GPS.');
+      }
+    };
+
+    // Panggilan pertama secara cepat
+    navigator.geolocation.getCurrentPosition(handleSuccess, handleError, options);
+
+    // Watch position untuk presisi lebih tinggi dan kontinu
+    const watchId = navigator.geolocation.watchPosition(handleSuccess, null, options);
+    return () => navigator.geolocation.clearWatch(watchId);
   }, [kegiatan]);
 
   const [daftarJadwal, setDaftarJadwal] = useState([]);
@@ -190,14 +201,52 @@ export default function PresensiPublicPage() {
     }
   };
 
+  // Helper menghasilkan Device ID unik per perangkat/browser
+  const getOrCreateDeviceId = () => {
+    let deviceId = localStorage.getItem('dprd_device_fingerprint_id');
+    if (!deviceId) {
+      const screenRes = `${window.screen.width}x${window.screen.height}`;
+      const randomStr = Math.random().toString(36).substring(2, 10);
+      deviceId = `DEV-${Date.now().toString(36)}-${randomStr}-${screenRes}`;
+      localStorage.setItem('dprd_device_fingerprint_id', deviceId);
+    }
+    return deviceId;
+  };
+
+  const getDeviceModel = () => {
+    const ua = navigator.userAgent;
+    if (/android/i.test(ua)) return 'Android Device';
+    if (/iPad|iPhone|iPod/.test(ua)) return 'Apple iOS Device';
+    if (/Windows/i.test(ua)) return 'Windows PC';
+    if (/Macintosh/i.test(ua)) return 'Macintosh';
+    if (/Linux/i.test(ua)) return 'Linux Device';
+    return 'Web Browser';
+  };
+
+  const [deviceWarning, setDeviceWarning] = useState(null);
+
   const cekDuplikat = (nama) => {
-    if (!kegiatan) return false;
+    if (!kegiatan) return null;
     const existing = absensiStorage.getAll();
-    return existing.some(
+    const currentDeviceId = getOrCreateDeviceId();
+
+    // 1. Cek duplikat perangkat (1 Device = 1 Absen per Agenda)
+    const duplicateDevice = existing.find(
+      (a) =>
+        a.jadwalId === kegiatan.id &&
+        (a.deviceId === currentDeviceId || localStorage.getItem(`dprd_has_attended_${kegiatan.id}`) === 'true')
+    );
+    if (duplicateDevice) return { type: 'DEVICE', item: duplicateDevice };
+
+    // 2. Cek duplikat nama pada agenda yang sama
+    const duplicateNama = existing.find(
       (a) =>
         a.jadwalId === kegiatan.id &&
         a.namaAnggota?.trim().toLowerCase() === nama.trim().toLowerCase()
     );
+    if (duplicateNama) return { type: 'NAMA', item: duplicateNama };
+
+    return null;
   };
 
   const handleSubmit = async (e) => {
@@ -211,14 +260,49 @@ export default function PresensiPublicPage() {
       return;
     }
 
-    if (cekDuplikat(nama)) {
-      setDuplikatError(true);
-      return;
+    const duplikatInfo = cekDuplikat(nama);
+    if (duplikatInfo) {
+      const nowIso = new Date().toISOString();
+      const deviceName = getDeviceModel();
+
+      if (duplikatInfo.type === 'DEVICE') {
+        // Kirim Notifikasi Sistem untuk Admin / Anggota Komisi
+        notifikasiStorage.add({
+          id: `FRAUD-DEV-${Date.now().toString().slice(-4)}`,
+          judul: '🚨 Peringatan Deteksi Percobaan Absensi Ganda (1 Perangkat 2 Scan)',
+          pesan: `Perangkat (${deviceName}) yang pernah dipakai oleh "${duplikatInfo.item.namaAnggota}" dicoba untuk scan presensi atas nama "${nama}" pada kegiatan "${kegiatan.judul}".`,
+          tipe: 'fraud',
+          level: 'Peringatan Tinggi',
+          dibaca: false,
+          createdAt: nowIso,
+        });
+
+        setDeviceWarning(duplikatInfo.item);
+        return;
+      }
+
+      if (duplikatInfo.type === 'NAMA') {
+        notifikasiStorage.add({
+          id: `FRAUD-NAME-${Date.now().toString().slice(-4)}`,
+          judul: '⚠️ Percobaan Presensi Nama Duplikat',
+          pesan: `Ada percobaan presensi ulang untuk nama "${nama}" di agenda "${kegiatan.judul}".`,
+          tipe: 'fraud',
+          level: 'Peringatan Sedang',
+          dibaca: false,
+          createdAt: nowIso,
+        });
+
+        setDuplikatError(true);
+        return;
+      }
     }
 
     setSubmitting(true);
 
     const nowIso = new Date().toISOString();
+    const currentDeviceId = getOrCreateDeviceId();
+    const deviceName = getDeviceModel();
+
     const payload = {
       jadwalId: kegiatan.id,
       jadwalJudul: kegiatan.judul,
@@ -233,10 +317,14 @@ export default function PresensiPublicPage() {
       alamatLokasi: alamatGps || (koordinatUser ? `${koordinatUser.lat.toFixed(6)}, ${koordinatUser.lng.toFixed(6)}` : 'GPS tidak aktif'),
       jarakMeter: jarakMeter || null,
       akurasiGps: gpsAccuracy ? `${gpsAccuracy} meter` : null,
+      deviceId: currentDeviceId,
+      deviceName: deviceName,
       deviceUserAgent: navigator.userAgent
     };
 
     setSubmittedData(payload);
+    localStorage.setItem(`dprd_has_attended_${kegiatan.id}`, 'true');
+    localStorage.setItem(`dprd_attendee_name_${kegiatan.id}`, nama);
 
     try {
       if (!isOnline) {
@@ -253,7 +341,7 @@ export default function PresensiPublicPage() {
         } catch {}
         notifikasiStorage.add({
           judul: 'Presensi Baru Masuk',
-          pesan: `${nama} (${tipeAbsen === 'tamu' ? 'Tamu' : komisi}) hadir di kegiatan "${kegiatan.judul}"`,
+          pesan: `${nama} (${tipeAbsen === 'tamu' ? 'Tamu' : komisi}) hadir di kegiatan "${kegiatan.judul}" [Perangkat: ${deviceName}]`,
           tipe: 'absensi',
           dibaca: false,
           createdAt: nowIso,
@@ -472,11 +560,34 @@ export default function PresensiPublicPage() {
           </div>
         </div>
 
-        {/* Duplicate Error */}
+        {/* Duplicate Name Error */}
         {duplikatError && (
           <div style={{ background: 'var(--danger-s)', color: 'var(--danger)', padding: '10px 12px', borderRadius: 'var(--radius-sm)', fontSize: 12, marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>🚫 <strong>Nama ini sudah tercatat</strong> di agenda ini.</span>
             <button type="button" onClick={() => setDuplikatError(false)} style={{ background: 'none', border: 'none', color: 'var(--danger)', fontWeight: 800, cursor: 'pointer' }}>✕</button>
+          </div>
+        )}
+
+        {/* Duplicate Device Warning (Deteksi Perangkat Scan 2x) */}
+        {deviceWarning && (
+          <div style={{ background: '#FFFBEB', border: '1.5px solid #F59E0B', color: '#92400E', padding: '12px 14px', borderRadius: 'var(--radius-sm)', fontSize: 12, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 800, marginBottom: 4, color: '#B45309' }}>
+              <AlertTriangle size={15} />
+              <span>DETEKSI PERANGKAT: Sudah Digunakan Scan Absen!</span>
+            </div>
+            <p style={{ margin: 0, lineHeight: 1.4, fontSize: 11.5 }}>
+              HP/Perangkat ini sebelumnya sudah digunakan untuk absen atas nama: <strong>{deviceWarning.namaAnggota}</strong> ({deviceWarning.komisi}) pada pukul {new Date(deviceWarning.waktuPresensi).toLocaleTimeString('id-ID')} WIB.
+            </p>
+            <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ fontSize: 11, padding: '4px 8px' }}
+                onClick={() => setDeviceWarning(null)}
+              >
+                Ganti Data
+              </button>
+            </div>
           </div>
         )}
 

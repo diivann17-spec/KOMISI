@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Send, FileText, Plus, Search, Filter, CheckCircle2, Clock, AlertCircle, ArrowRight, CornerDownRight, ShieldCheck, Edit3, QrCode, Download, X, Pen } from 'lucide-react';
+import { Mail, Send, FileText, Plus, Search, Filter, CheckCircle2, Clock, AlertCircle, ArrowRight, CornerDownRight, ShieldCheck, Edit3, QrCode, Download, X, Pen, Trash2 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { logActivity } from '../utils/audit';
 import { userStorage } from '../utils/storage';
 import { generateOfficialSuratPdf } from '../utils/pdf';
+import TteStampBox from '../components/TteStampBox';
 
 const INITIAL_SURAT_MASUK = [
   {
@@ -144,18 +145,10 @@ function ModalTTDSuratKeluar({ surat, user, onConfirm, onCancel }) {
     setHasDrawn(false);
   };
 
-  const qrData = JSON.stringify({
-    jenis: 'PENGESAHAN_SURAT_DPRD',
-    nomor: surat.nomorSurat,
-    komisi: surat.pengirimKomisi,
-    tujuan: surat.tujuan,
-    perihal: surat.perihal,
-    penandatangan: namaPenandatangan,
-    jabatan,
-    waktuTTD: new Date().toISOString(),
-    status: 'SAH',
-    verifikasi: `DPRD-SURAT-${surat.id}-${Date.now().toString(36).toUpperCase()}`
-  });
+  if (!surat) return null;
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dprd.go.id';
+  const qrData = `${origin}/verifikasi-ttd?id=${surat?.id || ''}&nomor=${encodeURIComponent(surat?.nomorSurat || '')}&token=${encodeURIComponent(`DPRD-SURAT-${surat?.id || '0'}-${Date.now().toString(36).toUpperCase()}`)}`;
 
   const handleSign = () => {
     setSigned(true);
@@ -283,10 +276,10 @@ function ModalTTDSuratKeluar({ surat, user, onConfirm, onCancel }) {
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 11, color: 'var(--success)', marginBottom: 2 }}>
-                🔒 Terenkripsi dengan Barcode QR Pengesahan Resmi
+                🔒 QR Code Verifikasi Asli (Bisa Di-scan)
               </div>
               <div style={{ fontSize: 10.5, color: 'var(--text-3)', lineHeight: 1.4 }}>
-                Sistem akan menyematkan QR Verifikasi dan tanda tangan ke dalam berkas surat resmi.
+                Arahkan Kamera HP / Google Lens ke QR ini untuk melihat halaman verifikasi TTD Digital & keabsahan surat resmi.
               </div>
             </div>
           </div>
@@ -313,47 +306,44 @@ function ModalTTDSuratKeluar({ surat, user, onConfirm, onCancel }) {
 
 // ─── KOMPONEN MODAL QR VERIFIKASI SURAT ────────────────────────────────────
 function ModalQRSurat({ surat, onClose }) {
-  const qrData = surat.qrToken
-    ? JSON.stringify({
-        jenis: 'SURAT_KELUAR',
-        nomor: surat.nomorSurat,
-        komisi: surat.pengirimKomisi,
-        kepada: surat.tujuan,
-        perihal: surat.perihal,
-        penandatangan: surat.ttdBy,
-        waktuTTD: surat.ttdAt,
-        status: 'SAH',
-        token: surat.qrToken
-      })
-    : `VERIFIKASI-${surat.nomorSurat}`;
+  if (!surat) return null;
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dprd.go.id';
+  const qrData = `${origin}/verifikasi-ttd?id=${surat?.id || ''}&nomor=${encodeURIComponent(surat?.nomorSurat || '')}&token=${encodeURIComponent(surat?.qrToken || 'SAH')}`;
+
+  const jabatanText = surat.pengirimKomisi ? `KETUA ${surat.pengirimKomisi.toUpperCase()} DEWAN PERWAKILAN RAKYAT DAERAH` : 'KETUA KOMISI DEWAN PERWAKILAN RAKYAT DAERAH';
+  const namaText = (surat.ttdBy || 'Drs. H. BAMBANG YUDI, S.H.').split('(')[0].trim();
+  const nipText = 'NIP. 19670802 199703 1 002';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 380, textAlign: 'center' }}>
+      <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440, textAlign: 'center' }}>
         <div className="modal-header">
-          <div className="modal-title">QR Pengesahan Resmi</div>
+          <div className="modal-title">Format TTE &amp; QR Pengesahan Resmi</div>
           <button className="btn btn-ghost btn-icon-sm" onClick={onClose}>
             <X size={18} />
           </button>
         </div>
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 20 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
             {surat.nomorSurat}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
-            {surat.pengirimKomisi} ➔ {surat.tujuan}
-          </div>
 
-          <div style={{ background: '#fff', padding: 14, borderRadius: 12, border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-            <QRCodeSVG value={qrData} size={180} level="H" includeMargin={true} />
-          </div>
+          <TteStampBox
+            jabatan={jabatanText}
+            nama={namaText}
+            nip={nipText}
+            verificationUrl={qrData}
+            signatureImage={surat.signatureImage}
+            width={350}
+          />
 
-          <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <CheckCircle2 size={13} /> Ditandatangani oleh {surat.ttdBy}
+          <div style={{ fontSize: 11, color: 'var(--success)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+            <CheckCircle2 size={13} /> Terverifikasi Sah oleh {surat.ttdBy}
           </div>
           {surat.ttdAt && (
             <div style={{ fontSize: 10, color: 'var(--text-4)' }}>
-              Waktu: {new Date(surat.ttdAt).toLocaleString('id-ID')}
+              Disahkan pada: {new Date(surat.ttdAt).toLocaleString('id-ID')}
             </div>
           )}
         </div>
@@ -510,6 +500,47 @@ export default function SuratPage() {
     setShowDisposisiModal(false);
     setSelectedSurat(null);
     setFormDisposisi({ tujuan: 'Komisi I', instruksi: '', deadline: '' });
+  };
+
+  // ─── HANDLER HAPUS & EDIT SURAT ─────────────────────────────────────────
+  const [editingSuratMasuk, setEditingSuratMasuk] = useState(null);
+  const [editingSuratKeluar, setEditingSuratKeluar] = useState(null);
+
+  const handleDeleteSuratMasuk = (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus data Surat Masuk ini?')) {
+      setSuratMasukList(prev => prev.filter(item => item.id !== id));
+      logActivity('SURAT_MASUK_DELETE', `Menghapus surat masuk ID: ${id}`);
+    }
+  };
+
+  const handleDeleteSuratKeluar = (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus data Surat Keluar ini?')) {
+      setSuratKeluarList(prev => prev.filter(item => item.id !== id));
+      logActivity('SURAT_KELUAR_DELETE', `Menghapus surat keluar ID: ${id}`);
+    }
+  };
+
+  const handleDeleteDisposisi = (id) => {
+    if (confirm('Apakah Anda yakin ingin menghapus data Disposisi ini?')) {
+      setDisposisiList(prev => prev.filter(item => item.id !== id));
+      logActivity('DISPOSISI_DELETE', `Menghapus disposisi ID: ${id}`);
+    }
+  };
+
+  const handleSaveEditSuratMasuk = (e) => {
+    e.preventDefault();
+    if (!editingSuratMasuk) return;
+    setSuratMasukList(prev => prev.map(s => s.id === editingSuratMasuk.id ? editingSuratMasuk : s));
+    logActivity('SURAT_MASUK_EDIT', `Mengubah data surat masuk No: ${editingSuratMasuk.nomorSurat}`);
+    setEditingSuratMasuk(null);
+  };
+
+  const handleSaveEditSuratKeluar = (e) => {
+    e.preventDefault();
+    if (!editingSuratKeluar) return;
+    setSuratKeluarList(prev => prev.map(s => s.id === editingSuratKeluar.id ? editingSuratKeluar : s));
+    logActivity('SURAT_KELUAR_EDIT', `Mengubah data surat keluar No: ${editingSuratKeluar.nomorSurat}`);
+    setEditingSuratKeluar(null);
   };
 
   const filteredSuratMasuk = suratMasukList.filter(s => {
@@ -695,7 +726,14 @@ export default function SuratPage() {
                       <td>{getSifatBadge(surat.sifat)}</td>
                       <td>{getStatusBadge(surat.status)}</td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="Edit Surat Masuk"
+                            onClick={() => setEditingSuratMasuk(surat)}
+                          >
+                            <Edit3 size={13} /> Edit
+                          </button>
                           <button
                             className="btn btn-secondary btn-sm"
                             title="Unduh Lembar Surat PDF"
@@ -708,6 +746,14 @@ export default function SuratPage() {
                             onClick={() => { setSelectedSurat(surat); setShowDisposisiModal(true); }}
                           >
                             <CornerDownRight size={13} /> Disposisi
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            title="Hapus Surat Masuk"
+                            onClick={() => handleDeleteSuratMasuk(surat.id)}
+                            style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                          >
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       </td>
@@ -762,7 +808,14 @@ export default function SuratPage() {
                         {sk.ttdAt && <div style={{ fontSize: 10, color: 'var(--text-4)' }}>{new Date(sk.ttdAt).toLocaleString('id-ID')}</div>}
                       </td>
                       <td style={{ textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'center' }}>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            title="Edit Surat Keluar"
+                            onClick={() => setEditingSuratKeluar(sk)}
+                          >
+                            <Edit3 size={13} /> Edit
+                          </button>
                           <button
                             className="btn btn-secondary btn-sm"
                             title="Unduh Template Dokumen PDF Resmi"
@@ -786,6 +839,14 @@ export default function SuratPage() {
                               <QrCode size={13} /> QR
                             </button>
                           )}
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            title="Hapus Surat Keluar"
+                            onClick={() => handleDeleteSuratKeluar(sk.id)}
+                            style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -812,11 +873,12 @@ export default function SuratPage() {
                   <th>Instruksi Disposisi</th>
                   <th>Tenggat (Deadline)</th>
                   <th>Status</th>
+                  <th style={{ textAlign: 'right' }}>Aksi</th>
                 </tr>
               </thead>
               <tbody>
                 {disposisiList.length === 0 ? (
-                  <tr><td colSpan={5} style={{ textAlign: 'center', padding: 32, color: 'var(--text-4)' }}>Belum ada disposisi surat yang diterbitkan.</td></tr>
+                  <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--text-4)' }}>Belum ada disposisi surat yang diterbitkan.</td></tr>
                 ) : (
                   disposisiList.map((dsp) => (
                     <tr key={dsp.id}>
@@ -835,6 +897,16 @@ export default function SuratPage() {
                       </td>
                       <td>
                         <span className="badge badge-blue">{dsp.status}</span>
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          title="Hapus Disposisi"
+                          onClick={() => handleDeleteDisposisi(dsp.id)}
+                          style={{ color: 'var(--danger)', padding: '4px 8px' }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -989,6 +1061,114 @@ export default function SuratPage() {
                 <div className="modal-footer" style={{ margin: '14px -20px -20px', borderRadius: '0 0 var(--radius-xl) var(--radius-xl)' }}>
                   <button type="button" className="btn btn-secondary" onClick={() => setShowDisposisiModal(false)}>Batal</button>
                   <button type="submit" className="btn btn-primary">Kirim Disposisi</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT SURAT MASUK */}
+      {editingSuratMasuk && (
+        <div className="modal-overlay" onClick={() => setEditingSuratMasuk(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div className="modal-header">
+              <div className="modal-title">Edit Data Surat Masuk</div>
+              <button className="btn btn-ghost btn-icon-sm" onClick={() => setEditingSuratMasuk(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleSaveEditSuratMasuk}>
+                <div className="form-group">
+                  <label className="form-label">Nomor Surat</label>
+                  <input type="text" className="form-input" required value={editingSuratMasuk.nomorSurat} onChange={e => setEditingSuratMasuk({ ...editingSuratMasuk, nomorSurat: e.target.value })} />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Tanggal Surat</label>
+                    <input type="date" className="form-input" required value={editingSuratMasuk.tanggalSurat} onChange={e => setEditingSuratMasuk({ ...editingSuratMasuk, tanggalSurat: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Sifat Surat</label>
+                    <select className="form-select" value={editingSuratMasuk.sifat} onChange={e => setEditingSuratMasuk({ ...editingSuratMasuk, sifat: e.target.value })}>
+                      <option>Biasa</option><option>Penting</option><option>Segera</option><option>Rahasia</option>
+                    </select>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Pengirim</label>
+                    <input type="text" className="form-input" required value={editingSuratMasuk.pengirim} onChange={e => setEditingSuratMasuk({ ...editingSuratMasuk, pengirim: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Komisi Tujuan</label>
+                    <select className="form-select" value={editingSuratMasuk.tujuan} onChange={e => setEditingSuratMasuk({ ...editingSuratMasuk, tujuan: e.target.value })}>
+                      <option>Komisi I</option><option>Komisi II</option><option>Komisi III</option><option>Komisi IV</option><option value="Sekretariat">Sekretariat DPRD</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Perihal Surat</label>
+                  <textarea className="form-textarea" rows={3} required value={editingSuratMasuk.perihal} onChange={e => setEditingSuratMasuk({ ...editingSuratMasuk, perihal: e.target.value })} />
+                </div>
+                <div className="modal-footer" style={{ margin: '14px -20px -20px', borderRadius: '0 0 var(--radius-xl) var(--radius-xl)' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setEditingSuratMasuk(null)}>Batal</button>
+                  <button type="submit" className="btn btn-primary">Simpan Perubahan</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: EDIT SURAT KELUAR */}
+      {editingSuratKeluar && (
+        <div className="modal-overlay" onClick={() => setEditingSuratKeluar(null)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 500 }}>
+            <div className="modal-header">
+              <div className="modal-title">Edit Data Surat Keluar</div>
+              <button className="btn btn-ghost btn-icon-sm" onClick={() => setEditingSuratKeluar(null)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <form onSubmit={handleSaveEditSuratKeluar}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Komisi Pengirim</label>
+                    <select className="form-select" value={editingSuratKeluar.pengirimKomisi} onChange={e => setEditingSuratKeluar({ ...editingSuratKeluar, pengirimKomisi: e.target.value })}>
+                      <option>Komisi I</option><option>Komisi II</option><option>Komisi III</option><option>Komisi IV</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Nomor Surat</label>
+                    <input type="text" className="form-input" required value={editingSuratKeluar.nomorSurat} onChange={e => setEditingSuratKeluar({ ...editingSuratKeluar, nomorSurat: e.target.value })} />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div className="form-group">
+                    <label className="form-label">Tanggal Surat</label>
+                    <input type="date" className="form-input" required value={editingSuratKeluar.tanggalSurat} onChange={e => setEditingSuratKeluar({ ...editingSuratKeluar, tanggalSurat: e.target.value })} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Sifat Surat</label>
+                    <select className="form-select" value={editingSuratKeluar.sifat} onChange={e => setEditingSuratKeluar({ ...editingSuratKeluar, sifat: e.target.value })}>
+                      <option>Biasa</option><option>Penting</option><option>Segera</option><option>Rahasia</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Kepada / Tujuan Surat</label>
+                  <input type="text" className="form-input" required value={editingSuratKeluar.tujuan} onChange={e => setEditingSuratKeluar({ ...editingSuratKeluar, tujuan: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Perihal Surat Keluar</label>
+                  <textarea className="form-textarea" rows={3} required value={editingSuratKeluar.perihal} onChange={e => setEditingSuratKeluar({ ...editingSuratKeluar, perihal: e.target.value })} />
+                </div>
+                <div className="modal-footer" style={{ margin: '14px -20px -20px', borderRadius: '0 0 var(--radius-xl) var(--radius-xl)' }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setEditingSuratKeluar(null)}>Batal</button>
+                  <button type="submit" className="btn btn-primary">Simpan Perubahan</button>
                 </div>
               </form>
             </div>

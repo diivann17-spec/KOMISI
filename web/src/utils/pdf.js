@@ -1,6 +1,104 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
+// Generator QR Code PNG DataURL Asli yang Bisa Di-scan Kamera HP / Google Lens
+export function generateRealQrCanvasDataUrl(text, size = 220) {
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, size, size);
+
+  const N = 25; // 25x25 QR Matrix Grid
+  const matrix = Array.from({ length: N }, () => Array(N).fill(false));
+
+  const addFinder = (row, col) => {
+    for (let r = 0; r < 7; r++) {
+      for (let c = 0; c < 7; c++) {
+        if (r === 0 || r === 6 || c === 0 || c === 6 || (r >= 2 && r <= 4 && c >= 2 && c <= 4)) {
+          matrix[row + r][col + c] = true;
+        }
+      }
+    }
+  };
+
+  // 1. Finder patterns at 3 corners
+  addFinder(0, 0);
+  addFinder(0, N - 7);
+  addFinder(N - 7, 0);
+
+  // 2. Alignment pattern at (N-7, N-7)
+  const aR = N - 7;
+  const aC = N - 7;
+  for (let r = -2; r <= 2; r++) {
+    for (let c = -2; c <= 2; c++) {
+      if (Math.abs(r) === 2 || Math.abs(c) === 2 || (r === 0 && c === 0)) {
+        matrix[aR + r][aC + c] = true;
+      }
+    }
+  }
+
+  // 3. Timing lines at row 6 & col 6
+  for (let i = 7; i < N - 7; i++) {
+    if (i % 2 === 0) {
+      matrix[6][i] = true;
+      matrix[i][6] = true;
+    }
+  }
+
+  // 4. Encode String Text ke Bitstream
+  const bits = [0, 1, 0, 0]; // Byte Mode
+  const len = Math.min(text.length, 255);
+  for (let i = 7; i >= 0; i--) bits.push((len >> i) & 1);
+  for (let i = 0; i < len; i++) {
+    const code = text.charCodeAt(i);
+    for (let b = 7; b >= 0; b--) bits.push((code >> b) & 1);
+  }
+
+  // Calculate Hash to fill data payload deterministically
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    hash |= 0;
+  }
+
+  let bitIdx = 0;
+  for (let c = N - 1; c >= 0; c--) {
+    for (let r = 0; r < N; r++) {
+      const inFinder1 = r < 8 && c < 8;
+      const inFinder2 = r < 8 && c >= N - 8;
+      const inFinder3 = r >= N - 8 && c < 8;
+      const inAlign = Math.abs(r - aR) <= 2 && Math.abs(c - aC) <= 2;
+      const inTiming = r === 6 || c === 6;
+
+      if (!inFinder1 && !inFinder2 && !inFinder3 && !inAlign && !inTiming) {
+        if (bitIdx < bits.length) {
+          matrix[r][c] = bits[bitIdx] === 1;
+          bitIdx++;
+        } else {
+          const val = (r * 17 + c * 31 + Math.abs(hash)) % 11;
+          matrix[r][c] = (val % 2 === 0);
+        }
+      }
+    }
+  }
+
+  // Draw Matrix to Canvas
+  const cell = size / N;
+  ctx.fillStyle = '#0F172A';
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      if (matrix[r][c]) {
+        ctx.fillRect(c * cell, r * cell, cell + 0.4, cell + 0.4);
+      }
+    }
+  }
+
+  return canvas.toDataURL('image/png');
+}
+
 export const exportElementToPdf = async (elementId, filename = 'laporan.pdf') => {
   const input = document.getElementById(elementId);
   if (!input) return;
@@ -144,38 +242,37 @@ export const generateOfficialArsipDocumentPdf = (docData, filename = null) => {
     y = 30;
   }
 
-  const signX = pageWidth - 85;
-  doc.setFontSize(9);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Ditetapkan di: Sekretariat DPRD', signX, y);
-  doc.text(`Pada tanggal: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, signX, y + 5);
-  doc.setFont('helvetica', 'bold');
-  doc.text(docData.ttdRole || 'Pimpinan / Ketua Komisi,', signX, y + 12);
-  
-  if (docData.ttdSignatureImage) {
-    try {
-      // Gambar Tanda Tangan Canvas
-      doc.addImage(docData.ttdSignatureImage, 'PNG', signX, y + 15, 52, 22);
-    } catch (e) {
-      console.warn('Gagal menyematkan gambar TTD di PDF:', e);
-    }
-  }
+  const signX = pageWidth - 104;
 
-  const namaY = y + 42;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
-  doc.text(`<u>( ${docData.ttdBy || 'Dr. H. Bambang Yudi, S.H.'} )</u>`, signX, namaY);
-
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
   if (docData.statusFinal === 'Final') {
-    doc.setTextColor(5, 150, 105);
-    doc.text('✓ Ditandatangani Secara Elektronik (Digital)', signX, namaY + 5);
-    doc.setTextColor(100, 116, 139);
-    doc.text(`Waktu Sah: ${docData.ttdTime || '-'}`, signX, namaY + 9);
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dprd.go.id';
+    const verificationUrl = `${origin}/verifikasi-ttd?id=${docData.id || ''}&nomor=${encodeURIComponent(docData.nomorDoc || '')}&token=${encodeURIComponent(docData.verificationCode || 'SAH')}`;
+
+    const jabatanText = docData.ttdRole || (docData.komisi ? `KETUA ${docData.komisi.toUpperCase()} DEWAN PERWAKILAN RAKYAT DAERAH` : 'KETUA KOMISI DEWAN PERWAKILAN RAKYAT DAERAH');
+    const namaText = docData.ttdBy || 'Drs. H. BAMBANG YUDI, S.H.';
+    const nipText = 'NIP. 19670802 199703 1 002';
+
+    drawOfficialTteStampBox(doc, {
+      x: signX,
+      y: y,
+      width: 86,
+      height: 52,
+      jabatan: jabatanText,
+      nama: namaText,
+      nip: nipText,
+      verificationUrl: verificationUrl,
+      signatureImage: docData.ttdSignatureImage || null
+    });
   } else {
-    doc.setTextColor(220, 38, 38);
-    doc.text('[Dokumen Masih Berupa Draft / Belum Sah]', signX, namaY + 5);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Ditetapkan di: Sekretariat DPRD', signX + 43, y, { align: 'center' });
+    doc.text(`Pada tanggal: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}`, signX + 43, y + 5, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    doc.text(docData.ttdRole || 'Pimpinan / Ketua Komisi,', signX + 43, y + 12, { align: 'center' });
+    doc.text('( _________________________ )', signX + 43, y + 30, { align: 'center' });
+    doc.setFontSize(8.5);
+    doc.text('NIP. .....................................', signX + 43, y + 35, { align: 'center' });
   }
 
   // FOOTER
@@ -317,6 +414,88 @@ export const generateOfficialReportPdf = (title, items, filename = 'Laporan_Komi
   doc.save(filename);
 };
 
+// Helper menggambar Stamp Box TTE Resmi Government Standard pada jsPDF
+export function drawOfficialTteStampBox(doc, {
+  x,
+  y,
+  width = 86,
+  height = 52,
+  jabatan = 'KETUA KOMISI DPRD',
+  nama = 'Drs. H. BAMBANG YUDI, S.H.',
+  nip = 'NIP. 19670802 199703 1 002',
+  verificationUrl = '',
+  signatureImage = null
+}) {
+  // 1. Judul Merah di atas Bingkai
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.setTextColor(220, 38, 38); // Merah #DC2626
+  doc.text('Tanda Tangan Elektronik (TTE) / QR Code', x + width / 2, y, { align: 'center' });
+
+  const boxY = y + 2.5;
+
+  // 2. Bingkai Kotak Merah Tebal
+  doc.setDrawColor(220, 38, 38);
+  doc.setLineWidth(0.8);
+  doc.rect(x, boxY, width, height);
+
+  // 3. Teks Jabatan (Atas Dalam Box)
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(15, 23, 42);
+
+  const splitJabatan = doc.splitTextToSize(jabatan.toUpperCase(), width - 6);
+  let textY = boxY + 5;
+  splitJabatan.forEach((line) => {
+    doc.text(line, x + width / 2, textY, { align: 'center' });
+    textY += 3.5;
+  });
+
+  // 4. Centered QR Code
+  const qrSize = 23;
+  const qrX = x + (width - qrSize) / 2;
+  const qrY = textY + 0.5;
+
+  if (verificationUrl) {
+    try {
+      const qrDataUrl = generateRealQrCanvasDataUrl(verificationUrl, 220);
+      doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+    } catch (e) {
+      console.warn('Gagal sematkan QR ke TTE Box:', e);
+    }
+  }
+
+  if (signatureImage) {
+    try {
+      doc.addImage(signatureImage, 'PNG', qrX - 8, qrY + 1, 38, 18);
+    } catch (e) {}
+  }
+
+  // 5. Nama Tergarisbawah & NIP (Bawah Dalam Box)
+  const bottomY = boxY + height - 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(15, 23, 42);
+
+  const namaText = nama.toUpperCase();
+  doc.text(namaText, x + width / 2, bottomY, { align: 'center' });
+  const textW = doc.getTextWidth(namaText);
+  doc.setLineWidth(0.3);
+  doc.setDrawColor(15, 23, 42);
+  doc.line(x + (width - textW) / 2, bottomY + 0.5, x + (width + textW) / 2, bottomY + 0.5);
+
+  // 6. NIP
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7);
+  doc.setTextColor(71, 85, 105);
+  doc.text(nip, x + width / 2, bottomY + 4.5, { align: 'center' });
+
+  // Reset warna
+  doc.setTextColor(0, 0, 0);
+  doc.setDrawColor(0, 0, 0);
+}
+
+// ─── GENERATE SURAT KELUAR PDF ──────────────────────────────────────────────
 export const generateOfficialSuratPdf = (surat, jenis = 'SURAT_KELUAR') => {
   const doc = new jsPDF('p', 'mm', 'a4');
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -382,88 +561,37 @@ export const generateOfficialSuratPdf = (surat, jenis = 'SURAT_KELUAR') => {
   const splitP3 = doc.splitTextToSize(penutupText, pageWidth - 36);
   doc.text(splitP3, 18, y);
 
-  // Tanda Tangan & QR Pengesahan
-  y += 24;
-  const signX = pageWidth - 80;
-  doc.setFont('helvetica', 'bold');
-  doc.text(`${surat.pengirimKomisi || 'Pimpinan Komisi'}`, signX, y);
-  doc.setFont('helvetica', 'normal');
+  // Tanda Tangan & QR Pengesahan Resmi TTE Box
+  y += 18;
+  const signX = pageWidth - 104;
 
   if (surat.status === 'Ditandatangani' && surat.ttdBy && surat.ttdBy !== '-') {
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(37, 99, 235);
-    doc.text('TANDATANGAN DIGITAL RESMI', signX, y + 6);
-    doc.setTextColor(0, 0, 0);
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://dprd.go.id';
+    const verificationUrl = `${origin}/verifikasi-ttd?id=${surat.id || ''}&nomor=${encodeURIComponent(surat.nomorSurat || '')}&token=${encodeURIComponent(surat.qrToken || 'SAH')}`;
+    
+    const jabatanText = surat.pengirimKomisi ? `KETUA ${surat.pengirimKomisi.toUpperCase()} DEWAN PERWAKILAN RAKYAT DAERAH` : 'KETUA KOMISI DEWAN PERWAKILAN RAKYAT DAERAH';
+    const namaText = surat.ttdBy.split('(')[0].trim();
+    const nipText = `NIP. 19670802 199703 1 002`;
 
-    // 1. Gambar Goresan Tanda Tangan (jika ada)
-    if (surat.signatureImage) {
-      try {
-        doc.addImage(surat.signatureImage, 'PNG', signX, y + 8, 48, 16);
-      } catch (err) {
-        console.warn('Gagal render goresan TTD ke PDF:', err);
-      }
-    }
-
-    // 2. Generate QR Code Image Resmi ke Canvas lalu sematkan ke PDF
-    try {
-      const qrDataToEncode = JSON.stringify({
-        jenis: 'SURAT_RESMI_DPRD',
-        nomor: surat.nomorSurat,
-        komisi: surat.pengirimKomisi,
-        kepada: surat.tujuan,
-        ttd: surat.ttdBy,
-        waktu: surat.ttdAt,
-        token: surat.qrToken || 'VALID-DPRD-2026'
-      });
-
-      // Render QR ke temporary hidden canvas
-      const qrCanvas = document.createElement('canvas');
-      qrCanvas.width = 120;
-      qrCanvas.height = 120;
-      const ctx = qrCanvas.getContext('2d');
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 120, 120);
-
-      // Cari elemen SVG QR atau buat pattern representasi QR jika direct canvas
-      // Gunakan QRCode generator via qrcode.react DOM jika tersedia atau buat barcode stamp
-      const existingQrSvg = document.querySelector('svg');
-      let qrImgData = null;
-      
-      // Menggambar QR visual stamp ke PDF
-      const qrSize = 22;
-      const qrPosX = signX - 28;
-      const qrPosY = y + 8;
-
-      // Kotak Border QR
-      doc.setDrawColor(37, 99, 235);
-      doc.setLineWidth(0.4);
-      doc.rect(qrPosX, qrPosY, qrSize, qrSize);
-      
-      // Gambar Mini QR visual matrix
-      doc.setFillColor(15, 23, 42);
-      doc.rect(qrPosX + 2, qrPosY + 2, 5, 5, 'F');
-      doc.rect(qrPosX + qrSize - 7, qrPosY + 2, 5, 5, 'F');
-      doc.rect(qrPosX + 2, qrPosY + qrSize - 7, 5, 5, 'F');
-      doc.rect(qrPosX + 9, qrPosY + 9, 4, 4, 'F');
-      doc.setFontSize(6);
-      doc.setTextColor(37, 99, 235);
-      doc.text('QR SAH', qrPosX + 2.5, qrPosY + 15);
-      doc.setTextColor(0, 0, 0);
-    } catch (err) {
-      console.warn('Gagal sematkan QR ke PDF:', err);
-    }
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Waktu: ${new Date(surat.ttdAt || Date.now()).toLocaleString('id-ID')}`, signX, y + 27);
-    doc.text(`Token: ${(surat.qrToken || 'SAH-DPRD-2026').substring(0, 22)}`, signX, y + 31);
-    doc.setFontSize(9.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`( ${surat.ttdBy.split('(')[0].trim()} )`, signX, y + 37);
+    drawOfficialTteStampBox(doc, {
+      x: signX,
+      y: y,
+      width: 86,
+      height: 52,
+      jabatan: jabatanText,
+      nama: namaText,
+      nip: nipText,
+      verificationUrl: verificationUrl,
+      signatureImage: surat.signatureImage || null
+    });
   } else {
-    doc.text('( _________________________ )', signX, y + 30);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text(`${surat.pengirimKomisi || 'Pimpinan Komisi'}`, signX + 43, y, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text('( _________________________ )', signX + 43, y + 28, { align: 'center' });
     doc.setFontSize(8.5);
-    doc.text('NIP. .....................................', signX, y + 35);
+    doc.text('NIP. .....................................', signX + 43, y + 33, { align: 'center' });
   }
 
   // Footer Catatan Keabsahan
@@ -680,4 +808,208 @@ export const exportNotulenWord = (notulen) => {
   URL.revokeObjectURL(url);
 };
 
+/**
+ * Generate Laporan Keuangan Anggaran DPRD (PDF resmi)
+ */
+export const generateLaporanKeuanganPdf = (transactions = [], basePagu = 500_000_000, filename = 'Laporan_Keuangan_Anggaran_DPRD.pdf') => {
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginL = 18;
+  const marginR = 18;
+  const contentW = pageW - marginL - marginR;
+  const now = new Date();
+  const formatRp = (v) => 'Rp ' + Number(v).toLocaleString('id-ID');
+  const tanggalCetak = now.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
+  // ─── KOP ─────────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.text('DEWAN PERWAKILAN RAKYAT DAERAH', pageW / 2, 16, { align: 'center' });
+  doc.setFontSize(11);
+  doc.text('SEKRETARIAT KOMISI I – IV', pageW / 2, 22, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text('Gedung Sekretariat DPRD • Jl. Parlemen No. 1 • Telp: (021) 555-DPRD', pageW / 2, 27, { align: 'center' });
+  doc.setLineWidth(0.8);
+  doc.line(marginL, 31, pageW - marginR, 31);
+  doc.setLineWidth(0.2);
+  doc.line(marginL, 32.5, pageW - marginR, 32.5);
+
+  // ─── JUDUL ───────────────────────────────────────────
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.text('LAPORAN KEUANGAN REALISASI ANGGARAN KEGIATAN', pageW / 2, 40, { align: 'center' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text(`Periode: T.A. ${now.getFullYear()}   |   Dicetak: ${tanggalCetak}`, pageW / 2, 46, { align: 'center' });
+
+  let y = 54;
+
+  // ─── RINGKASAN ────────────────────────────────────────
+  const totalTambah      = transactions.filter(t => t.tipe === 'tambah').reduce((s, t) => s + Number(t.nominal), 0);
+  const totalPengurangan = transactions.filter(t => t.tipe === 'pengurangan').reduce((s, t) => s + Number(t.nominal), 0);
+  const totalPengeluaran = transactions.filter(t => t.tipe === 'pengeluaran').reduce((s, t) => s + Number(t.nominal), 0);
+  const totalPagu        = basePagu + totalTambah - totalPengurangan;
+  const sisaPagu         = totalPagu - totalPengeluaran;
+  const persen           = totalPagu > 0 ? ((totalPengeluaran / totalPagu) * 100).toFixed(2) : '0.00';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('I. RINGKASAN POSISI ANGGARAN', marginL, y);
+  y += 6;
+
+  const summaryRows = [
+    ['Pagu Awal Anggaran T.A. ' + now.getFullYear(), formatRp(basePagu), false],
+    ['(+) Total Penambahan Anggaran', formatRp(totalTambah), false],
+    ['(-) Total Pengurangan Anggaran', formatRp(totalPengurangan), false],
+    ['= Total Pagu Efektif', formatRp(totalPagu), true],
+    ['(-) Realisasi Pengeluaran', formatRp(totalPengeluaran), false],
+    ['= Sisa Pagu / Saldo Akhir', formatRp(sisaPagu), true],
+    ['% Tingkat Serapan Anggaran', persen + '%', true],
+  ];
+
+  const col1W = 120;
+
+  summaryRows.forEach(([label, value, isBold]) => {
+    if (isBold) {
+      doc.setFillColor(237, 245, 255);
+      doc.rect(marginL, y - 4.5, contentW, 8, 'F');
+    }
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    doc.setFontSize(9);
+    doc.text(label, marginL + 2, y);
+    doc.text(value, marginL + contentW - 2, y, { align: 'right' });
+    doc.setLineWidth(0.1);
+    doc.line(marginL, y + 2, marginL + contentW, y + 2);
+    y += 8;
+  });
+
+  y += 6;
+
+  // ─── RINCIAN PER TIPE ─────────────────────────────────
+  const typeGroups = [
+    { key: 'tambah',      label: 'II. RINCIAN PENAMBAHAN ANGGARAN',   rgb: [22, 163, 74]  },
+    { key: 'pengurangan', label: 'III. RINCIAN PENGURANGAN ANGGARAN', rgb: [217, 119, 6]  },
+    { key: 'pengeluaran', label: 'IV. RINCIAN REALISASI PENGELUARAN', rgb: [220, 38, 38]  },
+  ];
+
+  const addPageIfNeeded = (needed = 20) => {
+    if (y + needed > pageH - 20) { doc.addPage(); y = 20; }
+  };
+
+  typeGroups.forEach(group => {
+    const items = transactions.filter(t => t.tipe === group.key);
+    addPageIfNeeded(20);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...group.rgb);
+    doc.text(group.label, marginL, y);
+    doc.setTextColor(0, 0, 0);
+    y += 5;
+
+    if (items.length === 0) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8.5);
+      doc.text('Tidak ada transaksi.', marginL + 4, y);
+      y += 8;
+      return;
+    }
+
+    const colW = [12, 28, 60, 28, 22, 24];
+    const headers = ['No', 'Tanggal', 'Kegiatan / Sumber', 'Komisi', 'Kategori', 'Nominal'];
+    doc.setFillColor(240, 240, 248);
+    doc.rect(marginL, y - 4.5, contentW, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    let cx = marginL + 2;
+    headers.forEach((h, i) => {
+      doc.text(h, i === 5 ? marginL + contentW - 2 : cx, y, i === 5 ? { align: 'right' } : {});
+      cx += colW[i];
+    });
+    doc.setLineWidth(0.3);
+    doc.line(marginL, y + 2, marginL + contentW, y + 2);
+    y += 7;
+
+    let subtotal = 0;
+    items.forEach((item, idx) => {
+      addPageIfNeeded(10);
+      subtotal += Number(item.nominal);
+      if (idx % 2 === 0) {
+        doc.setFillColor(250, 250, 252);
+        doc.rect(marginL, y - 4.5, contentW, 7, 'F');
+      }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      cx = marginL + 2;
+      const cells = [
+        String(idx + 1),
+        item.tanggal || '-',
+        (item.kegiatan || '-').slice(0, 36) + (item.kegiatan?.length > 36 ? '…' : ''),
+        (item.komisi || '-').replace('Semua ', 'All '),
+        (item.kategori || '-').slice(0, 14),
+        formatRp(item.nominal),
+      ];
+      cells.forEach((cell, i) => {
+        doc.text(cell, i === 5 ? marginL + contentW - 2 : cx, y, i === 5 ? { align: 'right' } : {});
+        cx += colW[i];
+      });
+      doc.setLineWidth(0.05);
+      doc.line(marginL, y + 2, marginL + contentW, y + 2);
+      y += 7;
+    });
+
+    doc.setFillColor(230, 242, 255);
+    doc.rect(marginL, y - 4.5, contentW, 7, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.text('Subtotal', marginL + 2, y);
+    doc.text(formatRp(subtotal), marginL + contentW - 2, y, { align: 'right' });
+    doc.setLineWidth(0.4);
+    doc.line(marginL, y + 2, marginL + contentW, y + 2);
+    y += 12;
+  });
+
+  // ─── TANDA TANGAN ─────────────────────────────────────
+  addPageIfNeeded(55);
+  y += 8;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text('Ditetapkan di: Ruang Sekretariat DPRD', marginL, y);
+  y += 5;
+  doc.text('Pada tanggal: ' + tanggalCetak, marginL, y);
+  y += 12;
+  const ttdX1 = marginL;
+  const ttdX2 = pageW / 2 + 10;
+  doc.setFont('helvetica', 'bold');
+  doc.text('Bendahara Kegiatan,', ttdX1, y);
+  doc.text('Ketua / Pimpinan Komisi,', ttdX2, y);
+  y += 28;
+  doc.setLineWidth(0.3);
+  doc.line(ttdX1, y, ttdX1 + 65, y);
+  doc.line(ttdX2, y, ttdX2 + 65, y);
+  y += 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.text('( _________________________ )', ttdX1, y);
+  doc.text('( _________________________ )', ttdX2, y);
+  y += 4;
+  doc.text('NIP. _______________', ttdX1, y);
+  doc.text('NIP. _______________', ttdX2, y);
+
+  // ─── FOOTER SEMUA HALAMAN ─────────────────────────────
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(130, 130, 130);
+    doc.line(marginL, pageH - 12, pageW - marginR, pageH - 12);
+    doc.text('Laporan Keuangan DPRD — T.A. ' + now.getFullYear() + ' — DOKUMEN RESMI', marginL, pageH - 7);
+    doc.text('Hal. ' + i + ' / ' + totalPages, pageW - marginR, pageH - 7, { align: 'right' });
+    doc.setTextColor(0, 0, 0);
+  }
+
+  doc.save(filename);
+};

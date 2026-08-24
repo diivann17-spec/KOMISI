@@ -18,6 +18,10 @@ const KEYS = {
   RAPAT: 'rapat',
   NOTIFIKASI: 'notifikasi',
   USER: 'user',
+  PENGINGAT: 'pengingat',
+  PESAN: 'pesan',
+  VOTING: 'voting',
+  LEGISLASI: 'legislasi',
 };
 
 export const generateId = () =>
@@ -29,9 +33,17 @@ export const getCurrentPosition = () => {
       reject(new Error('Geolocation tidak didukung pada peramban ini'));
     } else {
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        (pos) => resolve({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy
+        }),
         (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        {
+          enableHighAccuracy: true,
+          timeout: 20000,
+          maximumAge: 0
+        }
       );
     }
   });
@@ -143,7 +155,7 @@ const initFirestoreListener = (collName) => {
 };
 
 // Aktifkan realtime sync untuk koleksi utama
-['absensi', 'jadwal', 'notifikasi', 'arsip', 'rapat'].forEach(initFirestoreListener);
+['absensi', 'jadwal', 'notifikasi', 'arsip', 'rapat', 'pengingat', 'pesan', 'voting', 'legislasi'].forEach(initFirestoreListener);
 
 const makeFirestoreStorage = (collName) => ({
   getAll: () => getLocal(collName),
@@ -173,17 +185,42 @@ const makeFirestoreStorage = (collName) => ({
     return true;
   },
   delete: async (id) => {
-    const list = getLocal(collName).filter(i => i.id !== id);
-    setLocal(collName, list);
+    const list = getLocal(collName);
+    const itemToDelete = list.find(i => i.id === id);
+    const filtered = list.filter(i => i.id !== id);
+    setLocal(collName, filtered);
     notifyStorageChange(collName);
+
+    // Hapus juga dari Firestore database jika terkoneksi
+    try {
+      if (itemToDelete && itemToDelete._firestoreId) {
+        await deleteDoc(doc(db, collName, itemToDelete._firestoreId));
+      } else if (id) {
+        // Coba cari doc yang id (properti) sesuai jika _firestoreId tidak tersimpan
+        const q = query(collection(db, collName));
+        const snapshot = await getDocs(q);
+        snapshot.forEach(async (dSnap) => {
+          if (dSnap.data().id === id) {
+            await deleteDoc(doc(db, collName, dSnap.id));
+          }
+        });
+      }
+    } catch (e) {
+      console.warn(`[Firebase] Delete fallback for ${collName}:`, e);
+    }
+
     return true;
   },
 });
 
-export const jadwalStorage   = makeFirestoreStorage(KEYS.JADWAL);
-export const arsipStorage    = makeFirestoreStorage(KEYS.ARSIP);
-export const absensiStorage  = makeFirestoreStorage(KEYS.ABSENSI);
-export const rapatStorage    = makeFirestoreStorage(KEYS.RAPAT);
+export const jadwalStorage    = makeFirestoreStorage(KEYS.JADWAL);
+export const arsipStorage     = makeFirestoreStorage(KEYS.ARSIP);
+export const absensiStorage   = makeFirestoreStorage(KEYS.ABSENSI);
+export const rapatStorage     = makeFirestoreStorage(KEYS.RAPAT);
+export const pengingatStorage = makeFirestoreStorage(KEYS.PENGINGAT);
+export const pesanStorage     = makeFirestoreStorage(KEYS.PESAN);
+export const votingStorage    = makeFirestoreStorage(KEYS.VOTING);
+export const legislasiStorage = makeFirestoreStorage(KEYS.LEGISLASI);
 
 export const notifikasiStorage = {
   ...makeFirestoreStorage(KEYS.NOTIFIKASI),
@@ -219,19 +256,25 @@ export const seedMockData = () => {
     localStorage.setItem(KEYS.USER, JSON.stringify({ id: 'u1', displayName: 'Admin Sekretariat', username: 'admin', role: 'sekretariat', roleLabel: 'Admin / Sekretariat DPRD' }));
   }
 
-  if (!getLocal(KEYS.JADWAL).length) {
-    setLocal(KEYS.JADWAL, [
-      { id: 'j1', judul: 'Rapat Komisi I - Pembahasan APBD', tanggal: today, waktuMulai: '09:00', waktuSelesai: '12:00', lokasi: 'Ruang Rapat Utama Lt. 3', komisi: 'Komisi I', jenisKegiatan: 'Rapat Komisi', status: 'aktif', keterangan: 'Agenda utama: pembahasan anggaran perubahan', createdAt: now.toISOString() },
-      { id: 'j2', judul: 'Kunjungan Kerja Komisi II', tanggal: today, waktuMulai: '13:00', waktuSelesai: '17:00', lokasi: 'Dinas Perindustrian', komisi: 'Komisi II', jenisKegiatan: 'Kunjungan Kerja', status: 'aktif', keterangan: '', createdAt: now.toISOString() },
-      { id: 'j3', judul: 'Rapat Dengar Pendapat Komisi III', tanggal: today, waktuMulai: '10:00', waktuSelesai: '14:00', lokasi: 'Ruang Komisi III', komisi: 'Komisi III', jenisKegiatan: 'Rapat Dengar Pendapat', status: 'aktif', keterangan: '', createdAt: now.toISOString() },
-    ]);
-  }
+  // Cek apakah sistem pernah di-seed agar data dummy tidak dibuat ulang saat dihapus
+  const isSeeded = localStorage.getItem('sim_seeded');
+  if (!isSeeded) {
+    if (!getLocal(KEYS.JADWAL).length) {
+      setLocal(KEYS.JADWAL, [
+        { id: 'j1', judul: 'Rapat Komisi I - Pembahasan APBD', tanggal: today, waktuMulai: '09:00', waktuSelesai: '12:00', lokasi: 'Ruang Rapat Utama Lt. 3', komisi: 'Komisi I', jenisKegiatan: 'Rapat Komisi', status: 'aktif', keterangan: 'Agenda utama: pembahasan anggaran perubahan', createdAt: now.toISOString() },
+        { id: 'j2', judul: 'Kunjungan Kerja Komisi II', tanggal: today, waktuMulai: '13:00', waktuSelesai: '17:00', lokasi: 'Dinas Perindustrian', komisi: 'Komisi II', jenisKegiatan: 'Kunjungan Kerja', status: 'aktif', keterangan: '', createdAt: now.toISOString() },
+        { id: 'j3', judul: 'Rapat Dengar Pendapat Komisi III', tanggal: today, waktuMulai: '10:00', waktuSelesai: '14:00', lokasi: 'Ruang Komisi III', komisi: 'Komisi III', jenisKegiatan: 'Rapat Dengar Pendapat', status: 'aktif', keterangan: '', createdAt: now.toISOString() },
+      ]);
+    }
 
-  if (!getLocal(KEYS.ABSENSI).length) {
-    setLocal(KEYS.ABSENSI, [
-      { id: 'a1', jadwalId: 'j1', jadwalJudul: 'Rapat Komisi I - Pembahasan APBD', namaAnggota: 'H. Ahmad Fauzi, S.E.', komisi: 'Komisi I', status: 'Hadir', waktuPresensi: now.toISOString() },
-      { id: 'a2', jadwalId: 'j1', jadwalJudul: 'Rapat Komisi I - Pembahasan APBD', namaAnggota: 'Drs. Supriyadi, M.Si', komisi: 'Komisi I', status: 'Hadir', waktuPresensi: now.toISOString() },
-      { id: 'a3', jadwalId: 'j2', jadwalJudul: 'Kunjungan Kerja Komisi II', namaAnggota: 'Hj. Siti Rahmah, S.Pd', komisi: 'Komisi II', status: 'Izin', waktuPresensi: now.toISOString() },
-    ]);
+    if (!getLocal(KEYS.ABSENSI).length) {
+      setLocal(KEYS.ABSENSI, [
+        { id: 'a1', jadwalId: 'j1', jadwalJudul: 'Rapat Komisi I - Pembahasan APBD', namaAnggota: 'H. Ahmad Fauzi, S.E.', komisi: 'Komisi I', status: 'Hadir', waktuPresensi: now.toISOString() },
+        { id: 'a2', jadwalId: 'j1', jadwalJudul: 'Rapat Komisi I - Pembahasan APBD', namaAnggota: 'Drs. Supriyadi, M.Si', komisi: 'Komisi I', status: 'Hadir', waktuPresensi: now.toISOString() },
+        { id: 'a3', jadwalId: 'j2', jadwalJudul: 'Kunjungan Kerja Komisi II', namaAnggota: 'Hj. Siti Rahmah, S.Pd', komisi: 'Komisi II', status: 'Izin', waktuPresensi: now.toISOString() },
+      ]);
+    }
+
+    localStorage.setItem('sim_seeded', 'true');
   }
 };

@@ -2,7 +2,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Archive, Calendar, ClipboardCheck,
   MessageSquare, Bell, Settings, LogOut, Scale,
-  Mail, Building, Users, DollarSign, BarChart
+  Mail, Building, Users, DollarSign, BarChart,
+  AlarmClock, MessageCircle, Vote, BookOpen
 } from 'lucide-react';
 import { userStorage } from '../utils/storage';
 import { useState, useEffect } from 'react';
@@ -10,7 +11,7 @@ import { useState, useEffect } from 'react';
 const NAV_ALL = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/surat',        icon: Mail,              label: 'Surat Menyurat' },
-  { to: '/jadwal',       icon: Calendar,         label: 'Jadwal Kegiatan' },
+  { to: '/jadwal',       icon: Calendar,          label: 'Jadwal Kegiatan' },
   { to: '/arsip',        icon: Archive,           label: 'Arsip Dokumen' },
   { to: '/absensi',      icon: ClipboardCheck,    label: 'Presensi & Absensi' },
   { to: '/rapat',        icon: MessageSquare,     label: 'Rapat & Notulen' },
@@ -18,19 +19,27 @@ const NAV_ALL = [
   { to: '/tamu',         icon: Users,             label: 'Tamu & Narasumber' },
   { to: '/anggaran',     icon: DollarSign,        label: 'Anggaran' },
   { to: '/laporan',      icon: BarChart,          label: 'Laporan & Statistik' },
+  { to: '/legislasi',    icon: BookOpen,          label: 'Produk Legislasi' },
+  { to: '/voting',       icon: Vote,              label: 'Voting Digital' },
+  { to: '/pesan',        icon: MessageCircle,     label: 'Pesan Internal', badge: 'pesan' },
+  { to: '/pengingat',    icon: AlarmClock,        label: 'Pengingat & Alarm' },
   { to: '/notifikasi',   icon: Bell,              label: 'Notifikasi', badge: true },
   { to: '/menu',         icon: Settings,          label: 'Pengaturan' },
 ];
 
 const NAV_PIMPINAN = [
-  { to: '/',             icon: LayoutDashboard, label: 'Executive Dashboard' },
+  { to: '/',             icon: LayoutDashboard,   label: 'Executive Dashboard' },
   { to: '/laporan',      icon: BarChart,          label: 'Laporan & Statistik' },
   { to: '/absensi',      icon: ClipboardCheck,    label: 'Monitoring Kuorum' },
   { to: '/surat',        icon: Mail,              label: 'Disposisi Surat' },
-  { to: '/jadwal',       icon: Calendar,         label: 'Kalender Sidang & Rapat' },
+  { to: '/jadwal',       icon: Calendar,          label: 'Kalender Sidang & Rapat' },
   { to: '/rapat',        icon: MessageSquare,     label: 'Risalah Rapat' },
   { to: '/arsip',        icon: Archive,           label: 'Arsip Dokumen' },
   { to: '/anggaran',     icon: DollarSign,        label: 'Monitoring Anggaran' },
+  { to: '/legislasi',    icon: BookOpen,          label: 'Produk Legislasi' },
+  { to: '/voting',       icon: Vote,              label: 'Voting Digital' },
+  { to: '/pesan',        icon: MessageCircle,     label: 'Pesan & Disposisi', badge: 'pesan' },
+  { to: '/pengingat',    icon: AlarmClock,        label: 'Pengingat & Alarm' },
   { to: '/notifikasi',   icon: Bell,              label: 'Notifikasi Pimpinan', badge: true },
   { to: '/menu',         icon: Settings,          label: 'Info Akses' },
 ];

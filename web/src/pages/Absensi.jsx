@@ -1,4 +1,4 @@
-import { Plus, Printer, QrCode, X, Search, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
+import { Plus, Printer, QrCode, X, Search, CheckCircle2, AlertCircle, Clock, Trash2, RotateCcw } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useEffect, useState, useMemo } from 'react';
 import { DAFTAR_KOMISI } from '../constants/theme';
@@ -129,6 +129,68 @@ export default function AbsensiPage() {
     loadData();
   };
 
+  const [trashList, setTrashList] = useState(() => {
+    const saved = localStorage.getItem('sim_trash_absensi');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [showTrashModal, setShowTrashModal] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('sim_trash_absensi', JSON.stringify(trashList));
+  }, [trashList]);
+
+  const handleDeleteRecord = async (id, nama) => {
+    const item = absensiList.find(a => a.id === id);
+    if (!item) return;
+    if (confirm(`Pindahkan data presensi "${nama}" ke Tempat Sampah?`)) {
+      await absensiStorage.delete(id);
+      if (item.jadwalId) {
+        localStorage.removeItem(`dprd_has_attended_${item.jadwalId}`);
+        localStorage.removeItem(`dprd_attendee_name_${item.jadwalId}`);
+      }
+      setTrashList(prev => [{ ...item, deletedAt: new Date().toLocaleString('id-ID') }, ...prev]);
+      loadData();
+    }
+  };
+
+  const handleClearAllAttendance = async () => {
+    const count = filteredAbsensi.length;
+    if (count === 0) return alert('Tidak ada data kehadiran yang tampil.');
+    
+    if (confirm(`Pindahkan ${count} data kehadiran ke Tempat Sampah?`)) {
+      const nowStr = new Date().toLocaleString('id-ID');
+      const itemsToTrash = filteredAbsensi.map(item => ({ ...item, deletedAt: nowStr }));
+      for (const item of filteredAbsensi) {
+        await absensiStorage.delete(item.id);
+        if (item.jadwalId) {
+          localStorage.removeItem(`dprd_has_attended_${item.jadwalId}`);
+          localStorage.removeItem(`dprd_attendee_name_${item.jadwalId}`);
+        }
+      }
+      setTrashList(prev => [...itemsToTrash, ...prev]);
+      loadData();
+    }
+  };
+
+  const handleRestoreRecord = async (item) => {
+    const { deletedAt, ...cleanItem } = item;
+    await absensiStorage.add(cleanItem);
+    setTrashList(prev => prev.filter(t => t.id !== item.id));
+    loadData();
+  };
+
+  const handlePermanentDelete = (id) => {
+    if (confirm('⚠️ PERINGATAN: Hapus Permanen data presensi ini? Data TIDAK DAPAT dikembalikan!')) {
+      setTrashList(prev => prev.filter(t => t.id !== id));
+    }
+  };
+
+  const handleClearTrashPermanent = () => {
+    if (confirm('⚠️ PERINGATAN KETAT: Kosongkan SELURUH Tempat Sampah secara Permanen?')) {
+      setTrashList([]);
+    }
+  };
+
   const getLatestJadwalId = () => {
     if (!jadwalList.length) return '';
     const sorted = [...jadwalList].sort((a, b) => {
@@ -186,6 +248,18 @@ export default function AbsensiPage() {
 
       {/* ── Action Toolbar Row ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+        <button
+          onClick={() => setShowTrashModal(true)}
+          className="btn btn-secondary btn-sm"
+          style={{ position: 'relative', color: trashList.length > 0 ? 'var(--warning)' : 'var(--text-3)' }}
+        >
+          <Trash2 size={13} /> Tempat Sampah ({trashList.length})
+        </button>
+        {filteredAbsensi.length > 0 && (
+          <button onClick={handleClearAllAttendance} className="btn btn-danger btn-sm" title="Pindahkan Data Kehadiran ke Tempat Sampah">
+            <Trash2 size={13} /> Hapus Daftar ({filteredAbsensi.length})
+          </button>
+        )}
         <button onClick={handlePrintPdf} className="btn btn-secondary btn-sm">
           <Printer size={13} /> Cetak PDF
         </button>
@@ -261,21 +335,32 @@ export default function AbsensiPage() {
                 <th>Waktu Presensi</th>
                 <th>Lokasi GPS</th>
                 <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'center', width: 60 }}>Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filteredAbsensi.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-4)' }}>
+                  <td colSpan={7} style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-4)' }}>
                     Tidak ada data presensi yang sesuai kriteria.
                   </td>
                 </tr>
               ) : (
                 filteredAbsensi.map((item) => {
                   const sc = statusConfig[item.status] || statusConfig.Hadir;
+                  // Cek apakah ada record lain di agenda yang sama dengan deviceId yang sama
+                  const isDuplicateDevice = item.deviceId && filteredAbsensi.some(other => other.id !== item.id && other.jadwalId === item.jadwalId && other.deviceId === item.deviceId);
+
                   return (
-                    <tr key={item.id}>
-                      <td style={{ fontWeight: 700, color: 'var(--text)' }}>{item.namaAnggota}</td>
+                    <tr key={item.id} style={isDuplicateDevice ? { background: '#FFFBEB' } : {}}>
+                      <td style={{ fontWeight: 700, color: 'var(--text)' }}>
+                        <div>{item.namaAnggota}</div>
+                        {isDuplicateDevice && (
+                          <div style={{ fontSize: 9.5, color: '#B45309', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+                            <span>⚠️ Perangkat Sama (Titip Absen?)</span>
+                          </div>
+                        )}
+                      </td>
                       <td><span className="badge badge-blue">{item.komisi}</span></td>
                       <td style={{ whiteSpace: 'nowrap', fontSize: 12 }}>
                         {(() => {
@@ -289,7 +374,7 @@ export default function AbsensiPage() {
                           }
                         })()}
                       </td>
-                      <td style={{ minWidth: 220, maxWidth: 280, fontSize: 11 }}>
+                      <td style={{ minWidth: 200, maxWidth: 260, fontSize: 11 }}>
                         {(() => {
                           const coords = item.koordinatUser || (item.latitude && item.longitude ? `${item.latitude}, ${item.longitude}` : null);
                           const address = item.alamatLokasi || coords || 'Tercatat di Lokasi';
@@ -321,6 +406,11 @@ export default function AbsensiPage() {
                                   )}
                                 </div>
                               )}
+                              {item.deviceName && (
+                                <div style={{ fontSize: 9.5, color: '#64748B', display: 'flex', alignItems: 'center', gap: 3, marginTop: 1 }}>
+                                  <span>📱 {item.deviceName}</span>
+                                </div>
+                              )}
                               {item.jarakMeter !== undefined && item.jarakMeter !== null && (
                                 <div style={{ fontSize: 9.5, color: item.jarakMeter <= 500 ? 'var(--success)' : 'var(--warning)', fontWeight: 600 }}>
                                   Radius: {item.jarakMeter}m dari lokasi agenda
@@ -332,6 +422,16 @@ export default function AbsensiPage() {
                       </td>
                       <td style={{ textAlign: 'center' }}>
                         <span className={`badge ${sc.cls}`}>{sc.label}</span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          className="btn btn-danger btn-icon-sm"
+                          title={`Hapus presensi ${item.namaAnggota}`}
+                          onClick={() => handleDeleteRecord(item.id, item.namaAnggota)}
+                          style={{ margin: '0 auto' }}
+                        >
+                          <Trash2 size={13} />
+                        </button>
                       </td>
                     </tr>
                   );
@@ -446,6 +546,95 @@ export default function AbsensiPage() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary w-full" onClick={() => setShowQrModal(false)}>Tutup</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Tempat Sampah Presensi ── */}
+      {showTrashModal && (
+        <div className="modal-overlay" onClick={() => setShowTrashModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+            <div className="modal-header">
+              <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--warning)' }}>
+                <Trash2 size={18} /> Tempat Sampah Presensi ({trashList.length})
+              </div>
+              <button className="btn btn-ghost btn-icon-sm" onClick={() => setShowTrashModal(false)}>
+                <X size={17} />
+              </button>
+            </div>
+            <div className="modal-body">
+              {trashList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-4)' }}>
+                  Tempat sampah presensi kosong.
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+                      Item yang dihapus dapat <strong>Dikembalikan (Restore)</strong> atau <strong>Dihapus Permanen</strong>.
+                    </span>
+                    <button
+                      className="btn btn-danger btn-sm"
+                      style={{ fontSize: 11 }}
+                      onClick={handleClearTrashPermanent}
+                    >
+                      Kosongkan Sampah
+                    </button>
+                  </div>
+                  <div style={{ maxHeight: 340, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+                    <table style={{ width: '100%', fontSize: 12 }}>
+                      <thead style={{ background: 'var(--surface2)', position: 'sticky', top: 0 }}>
+                        <tr>
+                          <th style={{ padding: '8px 12px' }}>Nama & Komisi</th>
+                          <th style={{ padding: '8px 12px' }}>Agenda</th>
+                          <th style={{ padding: '8px 12px' }}>Dihapus Pada</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'center' }}>Opsi Aksi</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {trashList.map((item) => (
+                          <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                            <td style={{ padding: '8px 12px' }}>
+                              <div style={{ fontWeight: 700, color: 'var(--text)' }}>{item.namaAnggota}</div>
+                              <div style={{ fontSize: 10, color: 'var(--text-4)' }}>{item.komisi}</div>
+                            </td>
+                            <td style={{ padding: '8px 12px', fontSize: 11 }}>
+                              {item.jadwalJudul || 'Kegiatan Umum'}
+                            </td>
+                            <td style={{ padding: '8px 12px', fontSize: 10.5, color: 'var(--text-3)' }}>
+                              {item.deletedAt || '-'}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                              <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+                                <button
+                                  className="btn btn-secondary btn-sm"
+                                  style={{ color: 'var(--success)', borderColor: 'var(--success)', fontSize: 11, padding: '3px 8px' }}
+                                  title="Kembalikan (Restore) data ini"
+                                  onClick={() => handleRestoreRecord(item)}
+                                >
+                                  <RotateCcw size={12} /> Pulihkan
+                                </button>
+                                <button
+                                  className="btn btn-danger btn-sm"
+                                  style={{ fontSize: 11, padding: '3px 8px' }}
+                                  title="Hapus Permanen selamanya"
+                                  onClick={() => handlePermanentDelete(item.id)}
+                                >
+                                  <Trash2 size={12} /> Permanen
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowTrashModal(false)}>Tutup</button>
             </div>
           </div>
         </div>
