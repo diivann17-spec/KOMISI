@@ -23,6 +23,7 @@ import PengingatPage from './pages/Pengingat';
 import PesanPage from './pages/Pesan';
 import VotingPage from './pages/Voting';
 import LegislasiPage from './pages/Legislasi';
+import LokusKunjunganPage from './pages/LokusKunjungan';
 import { notifikasiStorage, pengingatStorage, jadwalStorage, seedMockData, userStorage } from './utils/storage';
 
 function ProtectedLayout() {
@@ -158,6 +159,7 @@ function ProtectedLayout() {
       case '/pesan': return { title: 'Pesan Internal & Disposisi', sub: 'Komunikasi internal anggota DPRD dan sekretariat', category: 'Komunikasi', page: 'Pesan' };
       case '/voting': return { title: 'Voting & Pengambilan Suara', sub: 'Sesi voting digital per agenda rapat dan sidang komisi', category: 'Sidang', page: 'Voting' };
       case '/legislasi': return { title: 'Produk Legislasi', sub: 'Tracking Perda, Raperda & Pansus — dari inisiasi hingga pengesahan', category: 'Hukum', page: 'Legislasi' };
+      case '/lokus-kunjungan': return { title: 'Penentuan Lokus Kunjungan', sub: 'Penetapan lokasi & instansi perjalanan dinas luar kota Komisi I–IV', category: 'Komisi DPRD', page: 'Lokus Kunjungan' };
       default: return { title: 'SIM Kegiatan DPRD', sub: '', category: 'SIM DPRD', page: 'Halaman' };
     }
   };
@@ -247,24 +249,27 @@ function ProtectedLayout() {
           </div>
         )}
 
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/jadwal" element={<JadwalPage />} />
-          <Route path="/arsip" element={<ArsipPage />} />
-          <Route path="/absensi" element={<AbsensiPage />} />
-          <Route path="/rapat" element={<RapatPage />} />
-          <Route path="/notifikasi" element={<NotifikasiPage />} />
-          <Route path="/menu" element={<MenuPage />} />
-          <Route path="/surat" element={<SuratPage />} />
-          <Route path="/fasilitas" element={<FasilitasPage />} />
-          <Route path="/tamu" element={<TamuPage />} />
-          <Route path="/anggaran" element={<AnggaranPage />} />
-          <Route path="/laporan" element={<LaporanPage />} />
-          <Route path="/pengingat" element={<PengingatPage />} />
-          <Route path="/pesan" element={<PesanPage />} />
-          <Route path="/voting" element={<VotingPage />} />
-          <Route path="/legislasi" element={<LegislasiPage />} />
-        </Routes>
+        <div className="page">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/jadwal" element={<JadwalPage />} />
+            <Route path="/arsip" element={<ArsipPage />} />
+            <Route path="/absensi" element={<AbsensiPage />} />
+            <Route path="/rapat" element={<RapatPage />} />
+            <Route path="/notifikasi" element={<NotifikasiPage />} />
+            <Route path="/menu" element={<MenuPage />} />
+            <Route path="/surat" element={<SuratPage />} />
+            <Route path="/fasilitas" element={<FasilitasPage />} />
+            <Route path="/tamu" element={<TamuPage />} />
+            <Route path="/anggaran" element={<AnggaranPage />} />
+            <Route path="/laporan" element={<LaporanPage />} />
+            <Route path="/pengingat" element={<PengingatPage />} />
+            <Route path="/pesan" element={<PesanPage />} />
+            <Route path="/voting" element={<VotingPage />} />
+            <Route path="/legislasi" element={<LegislasiPage />} />
+            <Route path="/lokus-kunjungan" element={<LokusKunjunganPage />} />
+          </Routes>
+        </div>
 
         {/* Mobile Bottom Navigation Bar */}
         <BottomNav />

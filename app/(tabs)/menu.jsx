@@ -142,6 +142,15 @@ export default function MenuScreen() {
               route: '/jadwal/edit',
             },
             {
+              id: 'lokus',
+              label: 'Lokus Kunjungan Dinas Luar Kota',
+              sub: 'Penetapan lokasi & instansi kunjungan Komisi',
+              icon: 'place',
+              color: '#0284C7',
+              bgColor: '#E0F2FE',
+              route: '/komisi',
+            },
+            {
               id: 'laporan',
               label: 'Modul Laporan PDF Resmi',
               sub: 'Cetak laporan kegiatan & presensi',

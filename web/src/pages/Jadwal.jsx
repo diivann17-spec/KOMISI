@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { jadwalStorage, notifikasiStorage, formatDate } from '../utils/storage';
 import { DAFTAR_KOMISI, KOMISI_COLORS } from '../constants/theme';
 import { Plus, X, Calendar as CalendarIcon, MapPin, Clock, Edit2, Trash2, QrCode, AlertCircle, ChevronLeft, ChevronRight, Grid, List as ListIcon, Flag, Info } from 'lucide-react';
@@ -41,6 +42,7 @@ const TIME_PRESETS = [
 ];
 
 export default function JadwalPage() {
+  const navigate = useNavigate();
   const [list, setList] = useState([]);
   const [filter, setFilter] = useState('Semua');
   const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'list'
@@ -191,6 +193,9 @@ export default function JadwalPage() {
               <ListIcon size={15} /> Daftar Agenda
             </button>
           </div>
+          <button className="btn btn-secondary" onClick={() => navigate('/lokus-kunjungan')}>
+            <MapPin size={16} /> Lokus Kunjungan Dinas
+          </button>
           <button className="btn btn-primary" onClick={() => openAdd()}>
             <Plus size={16} /> Tambah Jadwal
           </button>

@@ -3,13 +3,14 @@ import {
   LayoutDashboard, Archive, Calendar, ClipboardCheck,
   MessageSquare, Bell, Settings, LogOut, Scale,
   Mail, Building, Users, DollarSign, BarChart,
-  AlarmClock, MessageCircle, Vote, BookOpen, X
+  AlarmClock, MessageCircle, Vote, BookOpen, MapPin, X
 } from 'lucide-react';
 import { userStorage } from '../utils/storage';
 import { useState, useEffect } from 'react';
 
 const NAV_ALL = [
   { to: '/',             icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/lokus-kunjungan', icon: MapPin,         label: 'Lokus Kunjungan Dinas' },
   { to: '/surat',        icon: Mail,              label: 'Surat Menyurat' },
   { to: '/jadwal',       icon: Calendar,          label: 'Jadwal Kegiatan' },
   { to: '/arsip',        icon: Archive,           label: 'Arsip Dokumen' },
@@ -29,6 +30,7 @@ const NAV_ALL = [
 
 const NAV_PIMPINAN = [
   { to: '/',             icon: LayoutDashboard,   label: 'Executive Dashboard' },
+  { to: '/lokus-kunjungan', icon: MapPin,         label: 'Lokus Kunjungan Dinas' },
   { to: '/laporan',      icon: BarChart,          label: 'Laporan & Statistik' },
   { to: '/absensi',      icon: ClipboardCheck,    label: 'Monitoring Kuorum' },
   { to: '/surat',        icon: Mail,              label: 'Disposisi Surat' },

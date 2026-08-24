@@ -17,6 +17,7 @@ import {
     jadwalStorage,
     notifikasiStorage,
     rapatStorage,
+    lokusKunjunganStorage,
     userStorage,
 } from '../utils/storage';
 
@@ -29,21 +30,25 @@ const ICON_COLORS = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ jadwal: 0, arsip: 0, absensi: 0, rapat: 0, notif: 0 });
+  const [stats, setStats] = useState({ jadwal: 0, arsip: 0, absensi: 0, rapat: 0, notif: 0, lokus: 0 });
   const [todayAgenda, setTodayAgenda] = useState([]);
+  const [lokusList, setLokusList] = useState([]);
   const user = userStorage.getCurrentUser();
 
   const loadData = () => {
     const today = new Date().toISOString().split('T')[0];
     const jList = jadwalStorage.getAll();
+    const lList = lokusKunjunganStorage.getAll();
     setStats({
       jadwal: jList.length,
       arsip: arsipStorage.getAll().length,
       absensi: absensiStorage.getAll().length,
       rapat: rapatStorage.getAll().length,
       notif: notifikasiStorage.getUnread().length,
+      lokus: lList.length,
     });
     setTodayAgenda(jList.filter((j) => j.tanggal === today));
+    setLokusList(lList.slice(0, 3));
   };
 
   useEffect(() => {
@@ -63,8 +68,8 @@ export default function Dashboard() {
 
   const STAT_CARDS = [
     { label: 'Total Jadwal',   value: stats.jadwal,  icon: Calendar,      color: 'blue',   path: '/jadwal' },
-    { label: 'Arsip Dokumen',  value: stats.arsip,   icon: Archive,       color: 'green',  path: '/arsip' },
-    { label: 'Data Rapat',     value: stats.rapat,   icon: MessageSquare, color: 'purple', path: '/rapat' },
+    { label: 'Lokus Kunjungan',value: stats.lokus,   icon: MapPin,        color: 'green',  path: '/lokus-kunjungan' },
+    { label: 'Arsip Dokumen',  value: stats.arsip,   icon: Archive,       color: 'purple', path: '/arsip' },
     { label: 'Notif Baru',     value: stats.notif,   icon: Bell,          color: 'red',    path: '/notifikasi' },
   ];
 

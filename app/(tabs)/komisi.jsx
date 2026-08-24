@@ -15,7 +15,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors, PRIMARY, Spacing, Radius, FontSizes, Shadows, KOMISI_COLORS } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import KomisiCard from '@/components/KomisiCard';
-import { DAFTAR_KOMISI, MOCK_ANGGOTA } from '@/constants/data';
+import { DAFTAR_KOMISI, MOCK_ANGGOTA, MOCK_LOKUS_KUNJUNGAN } from '@/constants/data';
 
 export default function KomisiScreen() {
   const colorScheme = useColorScheme() ?? 'light';
@@ -169,6 +169,43 @@ export default function KomisiScreen() {
               );
             })
           )}
+        </View>
+
+        {/* LOKUS PERJALANAN DINAS SECTION */}
+        <View style={[styles.anggotaHeader, { marginTop: Spacing.lg }]}>
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            📍 Lokus Perjalanan Dinas Luar Kota — {selectedKomisi}
+          </Text>
+          <Text style={[styles.sectionSub, { color: theme.textSecondary }]}>
+            Agenda penetapan instansi & lokasi kunjungan kerja luar kota
+          </Text>
+        </View>
+
+        <View style={[styles.anggotaCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: Spacing.md }, Shadows.md]}>
+          {(() => {
+            const lokusKomisi = MOCK_LOKUS_KUNJUNGAN.filter(l => l.komisi === selectedKomisi);
+            if (lokusKomisi.length === 0) {
+              return (
+                <Text style={{ textAlign: 'center', color: theme.textSecondary, padding: Spacing.md }}>
+                  Belum ada penentuan lokus kunjungan dinas untuk {selectedKomisi}.
+                </Text>
+              );
+            }
+            return lokusKomisi.map(lok => (
+              <View key={lok.id} style={{ marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: theme.borderLight }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: PRIMARY.blue, flex: 1 }}>{lok.topik}</Text>
+                  <View style={{ backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: PRIMARY.blue }}>{lok.status}</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: theme.text, marginTop: 2 }}>📍 {lok.lokusKota} — {lok.instansiTujuan}</Text>
+                <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>📅 {lok.tanggalMulai} s/d {lok.tanggalSelesai} ({lok.durasiHari} Hari)</Text>
+                <Text style={{ fontSize: 12, color: theme.textSecondary, marginTop: 2 }}>👥 Rombongan: {lok.rombongan}</Text>
+                <Text style={{ fontSize: 12, fontWeight: '600', color: '#10B981', marginTop: 4 }}>💰 Estimasi Biaya: Rp {lok.estimasiBiaya.toLocaleString('id-ID')}</Text>
+              </View>
+            ));
+          })()}
         </View>
       </ScrollView>
 

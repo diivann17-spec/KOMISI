@@ -12,6 +12,7 @@ const KEYS = {
   RAPAT: '@dprd_rapat',
   NOTIFIKASI: '@dprd_notifikasi',
   PERUBAHAN_JADWAL: '@dprd_perubahan_jadwal',
+  LOKUS_KUNJUNGAN: '@dprd_lokus_kunjungan',
   USER: '@dprd_user',
 };
 
@@ -138,6 +139,7 @@ export const jadwalStorage = createStorage(KEYS.JADWAL, 'jadwal');
 export const arsipStorage = createStorage(KEYS.ARSIP, 'arsip');
 export const absensiStorage = createStorage(KEYS.ABSENSI, 'absensi');
 export const rapatStorage = createStorage(KEYS.RAPAT, 'rapat');
+export const lokusKunjunganStorage = createStorage(KEYS.LOKUS_KUNJUNGAN, 'lokus_kunjungan');
 
 // ----------------------------------------------------------
 // GPS Helper
