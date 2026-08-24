@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Archive, Calendar, ClipboardCheck,
   MessageSquare, Bell, Settings, LogOut, Scale,
   Mail, Building, Users, DollarSign, BarChart,
-  AlarmClock, MessageCircle, Vote, BookOpen
+  AlarmClock, MessageCircle, Vote, BookOpen, X
 } from 'lucide-react';
 import { userStorage } from '../utils/storage';
 import { useState, useEffect } from 'react';
@@ -89,6 +89,15 @@ export default function Sidebar({ unreadCount = 0, isOpen = false, onClose }) {
                 {isPimpinan ? 'Portal Ketua / Pimpinan' : 'Komisi I–IV • Kab/Kota'}
               </div>
             </div>
+            {onClose && (
+              <button
+                className="sidebar-close-btn"
+                onClick={onClose}
+                aria-label="Tutup menu"
+              >
+                <X size={18} />
+              </button>
+            )}
           </div>
         </div>
 
