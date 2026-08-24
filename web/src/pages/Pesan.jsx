@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { MessageCircle, Send, Inbox, Plus, X, Paperclip, User, Reply, Trash2, CheckCheck, ChevronRight } from 'lucide-react';
+import { MessageCircle, Send, Inbox, Plus, X, Paperclip, User, Reply, Trash2, Edit3, Search, CheckCheck, ChevronRight } from 'lucide-react';
 import { pesanStorage, formatDateTime, generateId } from '../utils/storage';
 import { logActivity } from '../utils/audit';
 
@@ -43,7 +43,9 @@ export default function PesanPage() {
   const [pesan, setPesan] = useState([]);
   const [selected, setSelected] = useState(null);
   const [tab, setTab] = useState('masuk');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showCompose, setShowCompose] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [currentUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
   });
@@ -51,7 +53,6 @@ export default function PesanPage() {
 
   const loadData = useCallback(() => {
     const data = pesanStorage.getAll();
-    // Seed jika kosong
     if (data.length === 0) {
       SEED_PESAN.forEach(p => pesanStorage.add(p));
       setPesan([...SEED_PESAN]);
@@ -72,7 +73,20 @@ export default function PesanPage() {
   const terkirim = pesan.filter(p => p.dari === currentName || p.dariId === currentUser?.id);
   const disposisi = pesan.filter(p => p.tipe === 'disposisi');
 
-  const list = tab === 'masuk' ? masuk : tab === 'terkirim' ? terkirim : disposisi;
+  const filterBySearch = (items) => {
+    if (!searchTerm.trim()) return items;
+    const q = searchTerm.toLowerCase();
+    return items.filter(
+      p =>
+        p.subjek?.toLowerCase().includes(q) ||
+        p.isi?.toLowerCase().includes(q) ||
+        p.dari?.toLowerCase().includes(q) ||
+        p.kepada?.toLowerCase().includes(q)
+    );
+  };
+
+  const rawList = tab === 'masuk' ? masuk : tab === 'terkirim' ? terkirim : disposisi;
+  const list = filterBySearch(rawList);
   const unreadMasuk = masuk.filter(p => !p.dibaca).length;
 
   const handleSelect = async (item) => {
@@ -83,37 +97,81 @@ export default function PesanPage() {
     }
   };
 
-  const handleSend = async (e) => {
+  const handleOpenNew = () => {
+    setEditingId(null);
+    setForm({ kepada: '', subjek: '', isi: '', tipe: 'pesan' });
+    setShowCompose(true);
+  };
+
+  const handleEdit = (item, e) => {
+    if (e) e.stopPropagation();
+    setEditingId(item.id);
+    const targetUserId = item.kepadaId || MOCK_USERS.find(u => u.name === item.kepada)?.id || '';
+    setForm({
+      kepada: targetUserId,
+      subjek: item.subjek || '',
+      isi: item.isi || '',
+      tipe: item.tipe || 'pesan',
+    });
+    setShowCompose(true);
+  };
+
+  const handleSave = async (e) => {
     e.preventDefault();
     if (!form.kepada || !form.subjek.trim() || !form.isi.trim()) return;
     const tujuanUser = MOCK_USERS.find(u => u.id === form.kepada);
-    await pesanStorage.add({
-      id: generateId(),
-      dari: currentName,
-      dariId: currentUser?.id || 'u1',
-      kepada: tujuanUser?.name || form.kepada,
-      kepadaId: form.kepada,
-      subjek: form.subjek,
-      isi: form.isi,
-      tipe: form.tipe,
-      dibaca: false,
-    });
-    logActivity('KIRIM_PESAN', `Pesan terkirim ke ${tujuanUser?.name}: ${form.subjek}`);
+    const targetName = tujuanUser?.name || form.kepada;
+
+    if (editingId) {
+      const patch = {
+        kepada: targetName,
+        kepadaId: form.kepada,
+        subjek: form.subjek,
+        isi: form.isi,
+        tipe: form.tipe,
+        isEdited: true,
+        updatedAt: new Date().toISOString(),
+      };
+      await pesanStorage.update(editingId, patch);
+      logActivity('EDIT_PESAN', `Pesan "${form.subjek}" (ID: ${editingId}) berhasil diperbarui.`);
+      if (selected?.id === editingId) {
+        setSelected(prev => ({ ...prev, ...patch }));
+      }
+    } else {
+      const newPesan = {
+        id: generateId(),
+        dari: currentName,
+        dariId: currentUser?.id || 'u1',
+        kepada: targetName,
+        kepadaId: form.kepada,
+        subjek: form.subjek,
+        isi: form.isi,
+        tipe: form.tipe,
+        dibaca: false,
+        createdAt: new Date().toISOString(),
+      };
+      await pesanStorage.add(newPesan);
+      logActivity('KIRIM_PESAN', `Pesan terkirim ke ${targetName}: ${form.subjek}`);
+      setTab('terkirim');
+    }
+
     setPesan(pesanStorage.getAll());
     setShowCompose(false);
+    setEditingId(null);
     setForm({ kepada: '', subjek: '', isi: '', tipe: 'pesan' });
-    setTab('terkirim');
   };
 
   const handleDelete = async (id, e) => {
-    e.stopPropagation();
-    if (!confirm('Hapus pesan ini?')) return;
+    if (e) e.stopPropagation();
+    if (!confirm('Apakah Anda yakin ingin menghapus pesan ini?')) return;
     await pesanStorage.delete(id);
+    logActivity('HAPUS_PESAN', `Pesan (ID: ${id}) telah dihapus.`);
     if (selected?.id === id) setSelected(null);
     setPesan(pesanStorage.getAll());
   };
 
   const handleReply = (item) => {
+    setEditingId(null);
     setForm({
       kepada: item.dariId || '',
       subjek: `Re: ${item.subjek}`,
@@ -141,12 +199,12 @@ export default function PesanPage() {
             Komunikasi internal anggota DPRD dan sekretariat
           </p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCompose(true)}>
+        <button className="btn btn-primary" onClick={handleOpenNew}>
           <Plus size={16} /> Tulis Pesan
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr', gap: 20, height: 'calc(100vh - 220px)', minHeight: 500 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20, height: 'calc(100vh - 220px)', minHeight: 520 }}>
         {/* Panel kiri: Daftar pesan */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="filter-pills" style={{ flexWrap: 'nowrap' }}>
@@ -159,6 +217,27 @@ export default function PesanPage() {
                 {label}
               </button>
             ))}
+          </div>
+
+          {/* Search bar */}
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-3)' }} />
+            <input
+              type="text"
+              className="form-input"
+              style={{ paddingLeft: 34, fontSize: 13, height: 36 }}
+              placeholder="Cari subjek, pengirim..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-3)' }}
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           <div className="card" style={{ flex: 1, padding: 0, overflow: 'auto' }}>
@@ -179,7 +258,9 @@ export default function PesanPage() {
                     background: selected?.id === item.id ? 'var(--primary-subtle, #EFF6FF)' : !item.dibaca ? 'var(--surface)' : 'var(--card)',
                     borderLeft: selected?.id === item.id ? '3px solid var(--primary)' : '3px solid transparent',
                     transition: 'background 0.15s',
+                    position: 'relative',
                   }}
+                  className="pesan-item-row"
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <div style={{
@@ -195,7 +276,10 @@ export default function PesanPage() {
                         <span style={{ fontWeight: item.dibaca ? 500 : 800, fontSize: 13, color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {tab === 'terkirim' ? `→ ${item.kepada}` : item.dari}
                         </span>
-                        {!item.dibaca && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {item.isEdited && <span style={{ fontSize: 10, color: 'var(--text-3)', fontStyle: 'italic' }}>(edited)</span>}
+                          {!item.dibaca && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--primary)', flexShrink: 0 }} />}
+                        </div>
                       </div>
                       <div style={{ fontSize: 12, fontWeight: item.dibaca ? 400 : 700, color: 'var(--text-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.subjek}
@@ -205,8 +289,29 @@ export default function PesanPage() {
                       )}
                     </div>
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, paddingLeft: 44 }}>
-                    {formatDateTime(item.createdAt)}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4, paddingLeft: 44 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-3)' }}>
+                      {formatDateTime(item.createdAt)}
+                    </span>
+                    <div style={{ display: 'flex', gap: 4 }} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className="btn btn-secondary btn-sm btn-icon"
+                        style={{ padding: '2px 4px', height: 'auto', border: 'none', background: 'transparent' }}
+                        title="Edit Pesan"
+                        onClick={(e) => handleEdit(item, e)}
+                      >
+                        <Edit3 size={13} style={{ color: 'var(--text-3)' }} />
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm btn-icon"
+                        style={{ padding: '2px 4px', height: 'auto', border: 'none', background: 'transparent' }}
+                        title="Hapus Pesan"
+                        onClick={(e) => handleDelete(item.id, e)}
+                      >
+                        <Trash2 size={13} style={{ color: '#EF4444' }} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -220,7 +325,14 @@ export default function PesanPage() {
             <>
               <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                 <div style={{ flex: 1 }}>
-                  <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)', marginBottom: 6 }}>{selected.subjek}</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text)' }}>{selected.subjek}</h2>
+                    {selected.isEdited && (
+                      <span className="badge" style={{ fontSize: 11, background: 'var(--surface)', color: 'var(--text-3)', border: '1px solid var(--border)' }}>
+                        Di-edit
+                      </span>
+                    )}
+                  </div>
                   <div style={{ display: 'flex', gap: 16, fontSize: 13, color: 'var(--text-3)', flexWrap: 'wrap' }}>
                     <span><strong>Dari:</strong> {selected.dari}</span>
                     <span><strong>Kepada:</strong> {selected.kepada}</span>
@@ -229,11 +341,14 @@ export default function PesanPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-secondary btn-sm" onClick={() => handleReply(selected)}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => handleReply(selected)} title="Balas Pesan">
                     <Reply size={14} /> Balas
                   </button>
-                  <button className="btn btn-secondary btn-sm btn-icon" onClick={(e) => handleDelete(selected.id, e)} title="Hapus">
-                    <Trash2 size={14} />
+                  <button className="btn btn-secondary btn-sm" onClick={(e) => handleEdit(selected, e)} title="Edit Pesan">
+                    <Edit3 size={14} /> Edit
+                  </button>
+                  <button className="btn btn-danger btn-sm" onClick={(e) => handleDelete(selected.id, e)} title="Hapus Pesan">
+                    <Trash2 size={14} /> Hapus
                   </button>
                 </div>
               </div>
@@ -262,15 +377,18 @@ export default function PesanPage() {
         </div>
       </div>
 
-      {/* Modal Compose */}
+      {/* Modal Compose / Edit */}
       {showCompose && (
         <div className="modal-overlay" onClick={() => setShowCompose(false)}>
           <div className="modal" style={{ width: 520 }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3><Send size={16} style={{ marginRight: 8 }} />Tulis Pesan Baru</h3>
+              <h3>
+                {editingId ? <Edit3 size={16} style={{ marginRight: 8 }} /> : <Send size={16} style={{ marginRight: 8 }} />}
+                {editingId ? 'Edit Pesan' : 'Tulis Pesan Baru'}
+              </h3>
               <button className="btn btn-secondary btn-sm btn-icon" onClick={() => setShowCompose(false)}><X size={16} /></button>
             </div>
-            <form onSubmit={handleSend} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label className="form-label">Tujuan</label>
                 <select className="form-select" value={form.kepada} onChange={e => setForm(p => ({ ...p, kepada: e.target.value }))} required>
@@ -303,7 +421,9 @@ export default function PesanPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCompose(false)}>Batal</button>
-                <button type="submit" className="btn btn-primary"><Send size={15} /> Kirim Pesan</button>
+                <button type="submit" className="btn btn-primary">
+                  {editingId ? <><Edit3 size={15} /> Simpan Perubahan</> : <><Send size={15} /> Kirim Pesan</>}
+                </button>
               </div>
             </form>
           </div>
@@ -312,3 +432,4 @@ export default function PesanPage() {
     </div>
   );
 }
+
