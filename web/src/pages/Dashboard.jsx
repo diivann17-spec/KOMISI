@@ -101,7 +101,7 @@ export default function Dashboard() {
           pointerEvents: 'none',
         }} />
 
-        <div className="dashboard-hero-copy" style={{ flex: 1, minWidth: 260, position: 'relative', zIndex: 1 }}>
+        <div className="dashboard-hero-copy" style={{ flex: 1, minWidth: 'min(100%, 200px)', position: 'relative', zIndex: 1 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '4px 12px', borderRadius: 99,
@@ -179,7 +179,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Content Grid ── */}
-      <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+      <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 16 }}>
 
         {/* Agenda Hari Ini */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>

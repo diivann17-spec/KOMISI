@@ -147,21 +147,40 @@ input, select, textarea {
 /* ════════════════════════════════════════════════
    SIDEBAR
 ════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════
+   SIDEBAR (MOBILE-FIRST DEFAULT)
+════════════════════════════════════════════════ */
 .sidebar {
-  width: var(--sidebar-w);
+  width: min(86vw, 300px);
   background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   overflow-y: auto;
-  z-index: 200;
+  z-index: 9999;
   border-right: 1px solid rgba(255,255,255,0.06);
-  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), width 0.2s ease;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  transform: translateX(-100%);
+  box-shadow: none;
+  touch-action: pan-y;
+}
+
+.sidebar.sidebar-open {
+  transform: translateX(0) !important;
+  box-shadow: 4px 0 30px rgba(0,0,0,0.5);
 }
 
 /* Mobile overlay backdrop */
 .sidebar-overlay {
-  display: none;
+  display: block;
   position: fixed;
   inset: 0;
   background: rgba(2, 6, 23, 0.65);
@@ -169,6 +188,7 @@ input, select, textarea {
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease;
+  cursor: pointer;
 }
 
 /* Hamburger button */
@@ -185,6 +205,7 @@ input, select, textarea {
   cursor: pointer;
   transition: background 0.13s, color 0.13s, transform 0.1s;
   flex-shrink: 0;
+  touch-action: manipulation;
 }
 .hamburger-btn:hover {
   background: var(--border);
@@ -196,7 +217,7 @@ input, select, textarea {
 
 /* Close button inside sidebar header for mobile */
 .sidebar-close-btn {
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
@@ -209,6 +230,7 @@ input, select, textarea {
   transition: background 0.13s, color 0.13s;
   flex-shrink: 0;
   margin-left: auto;
+  touch-action: manipulation;
 }
 .sidebar-close-btn:hover {
   background: rgba(255,255,255,0.18);
@@ -224,50 +246,19 @@ input, select, textarea {
 }
 
 /* ──────────────────────────────────────────────
-   RESPONSIVE SIDEBAR (Mobile & Tablet ≤ 1199px)
+   DESKTOP ONLY (≥ 1200px)
 ────────────────────────────────────────────── */
-@media (max-width: 1199px) {
-  .sidebar {
-    width: min(86vw, 300px);
-    position: fixed !important;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 9999;
-    /* Safe area untuk status bar Android */
-    padding-top: env(safe-area-inset-top);
-    /* Safe area untuk navigation bar bawah Android */
-    padding-bottom: env(safe-area-inset-bottom);
-    /* Pastikan sidebar kiri tidak dipotong notch */
-    padding-left: env(safe-area-inset-left);
-    height: 100dvh;
-    transform: translateX(-100%) !important;
-    box-shadow: none;
-  }
-  .sidebar.sidebar-open {
-    transform: translateX(0) !important;
-    box-shadow: 4px 0 30px rgba(0,0,0,0.5);
-  }
-  .sidebar-overlay {
-    display: block !important;
-  }
-  .hamburger-btn {
-    display: flex !important;
-  }
-  .sidebar-close-btn {
-    display: flex !important;
-  }
-}
-
-/* Desktop ≥ 1200px: sidebar selalu visible, hamburger tersembunyi */
 @media (min-width: 1200px) {
   .sidebar {
     position: relative !important;
     transform: translateX(0) !important;
-    width: var(--sidebar-w);
-    height: 100%;
-    z-index: 200;
+    width: var(--sidebar-w) !important;
+    height: 100% !important;
+    z-index: 200 !important;
     box-shadow: none !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    padding-left: 0 !important;
   }
   .hamburger-btn {
     display: none !important;
