@@ -8,11 +8,17 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  /* Hapus tap highlight biru/abu di Android */
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
   scroll-behavior: smooth;
+  /* Cegah zoom teks otomatis di Android saat rotate */
   -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  /* Cegah overscroll pull-to-refresh yg tidak diinginkan */
+  overscroll-behavior: none;
 }
 
 html, body, #root {
@@ -26,6 +32,21 @@ html, body, #root {
   transition: background-color 0.25s ease, color 0.25s ease;
   font-size: var(--font-base);
   line-height: 1.5;
+  /* Cegah selection tidak sengaja saat scroll di Android */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Izinkan seleksi teks pada konten yang perlu dibaca/copy */
+p, h1, h2, h3, h4, h5, h6, td, th, span, div[class*="title"], div[class*="content"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Input & textarea selalu bisa dipilih */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* ════════════════════════════════════════════════
@@ -69,6 +90,13 @@ label {
 button, input, select, textarea {
   font-family: var(--font-family);
   font-size: var(--font-base);
+  /* Cegah input zoom di Android/iOS (harus ≥16px saat fokus) */
+  touch-action: manipulation;
+}
+
+/* Khusus input/select/textarea: 16px minimum supaya Android tidak zoom */
+input, select, textarea {
+  font-size: max(16px, var(--font-base));
 }
 
 /* ════════════════════════════════════════════════
@@ -89,6 +117,9 @@ button, input, select, textarea {
   width: 100vw;
   overflow: hidden;
   background: var(--bg);
+  /* Safe area kiri/kanan untuk notch horizontal (landscape Android) */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 .main {
@@ -105,8 +136,12 @@ button, input, select, textarea {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 24px 40px;
+  padding: 20px 24px;
+  /* Padding bawah: konten tidak tertutup navigation bar Android */
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  /* Momentum scrolling di Android WebView */
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* ════════════════════════════════════════════════
@@ -119,9 +154,96 @@ button, input, select, textarea {
   flex-direction: column;
   flex-shrink: 0;
   overflow-y: auto;
-  z-index: 50;
+  z-index: 200;
   border-right: 1px solid rgba(255,255,255,0.06);
-  transition: width 0.2s ease;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), width 0.2s ease;
+}
+
+/* Mobile overlay backdrop */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(2, 6, 23, 0.65);
+  z-index: 199;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: fadeIn 0.2s ease;
+}
+
+/* Hamburger button — tampil di semua ukuran, tapi di desktop bisa disembunyikan */
+.hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+  flex-shrink: 0;
+}
+.hamburger-btn:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+/* ──────────────────────────────────────────────
+   RESPONSIVE SIDEBAR (mobile ≤ 768px)
+────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    /* Safe area untuk status bar Android */
+    padding-top: env(safe-area-inset-top);
+    /* Safe area untuk navigation bar bawah Android */
+    padding-bottom: env(safe-area-inset-bottom);
+    height: 100dvh;
+    transform: translateX(-100%);
+    box-shadow: none;
+    /* Pastikan sidebar kiri tidak dipotong notch */
+    padding-left: env(safe-area-inset-left);
+  }
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 30px rgba(0,0,0,0.4);
+  }
+  .sidebar-overlay {
+    display: block;
+  }
+  /* Hamburger tampil di mobile */
+  .hamburger-btn {
+    display: flex;
+  }
+}
+
+/* Desktop ≥ 769px: sidebar selalu visible, hamburger tersembunyi */
+@media (min-width: 769px) {
+  .sidebar {
+    transform: translateX(0) !important;
+    position: relative;
+    height: 100%;
+  }
+  .hamburger-btn {
+    display: none;
+  }
+  .sidebar-overlay {
+    display: none !important;
+  }
 }
 
 .sidebar-brand {
@@ -193,27 +315,39 @@ button, input, select, textarea {
   align-items: center;
   gap: 10px;
   padding: 8px 11px;
+  /* Min height 48px untuk touch target Android yang nyaman */
+  min-height: 44px;
   border-radius: 9px;
   font-size: 12.5px;
   font-weight: 600;
   color: #94A3B8;
   cursor: pointer;
   text-decoration: none;
-  transition: all 0.13s ease;
+  transition: background 0.13s ease, color 0.13s ease;
   position: relative;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* Touch action untuk responsivitas tap di Android */
+  touch-action: manipulation;
 }
 .nav-item:hover {
   background: rgba(255,255,255,0.07);
   color: #E2E8F0;
+}
+/* Active state saat ditekan di Android */
+.nav-item:active {
+  background: rgba(255,255,255,0.12);
+  transform: scale(0.98);
 }
 .nav-item.active {
   background: #1D4ED8;
   color: #FFFFFF;
   font-weight: 700;
   box-shadow: 0 3px 10px rgba(37, 99, 235, 0.35);
+}
+.nav-item.active:active {
+  background: #1e40af;
 }
 .nav-badge {
   margin-left: auto;
@@ -270,6 +404,10 @@ button, input, select, textarea {
   align-items: center;
   justify-content: space-between;
   padding: 0 22px;
+  /* Padding atas untuk status bar Android (notch / punch-hole) */
+  padding-top: env(safe-area-inset-top);
+  /* Tambahkan tinggi sesuai safe area atas */
+  min-height: calc(60px + env(safe-area-inset-top));
   flex-shrink: 0;
   box-shadow: var(--shadow-sm);
   z-index: 40;
@@ -994,19 +1132,105 @@ tbody tr:hover td { background: var(--surface2); }
 .animate-pulse   { animation: pulse 1.5s ease infinite; }
 
 /* ════════════════════════════════════════════════
+   BUTTON TOUCH TARGETS
+════════════════════════════════════════════════ */
+/* Semua button harus ≥44px touch target untuk Android */
+.btn {
+  min-height: 44px;
+  touch-action: manipulation;
+}
+.btn-sm { min-height: 36px; }
+.btn-icon { min-width: 44px; min-height: 44px; }
+.btn-icon-sm { min-width: 36px; min-height: 36px; }
+
+/* Hamburger harus besar untuk mudah di-tap di Android */
+.hamburger-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* ════════════════════════════════════════════════
+   FORM ANDROID SPECIFIC
+════════════════════════════════════════════════ */
+/* Cegah Android dari memperbesar tampilan saat fokus input */
+.form-input,
+.form-select,
+.form-textarea {
+  font-size: 16px; /* 16px minimum mencegah auto-zoom di Android */
+  touch-action: manipulation;
+}
+
+/* ════════════════════════════════════════════════
+   MODAL ANDROID SAFE AREA
+════════════════════════════════════════════════ */
+.modal-overlay {
+  /* Pastikan overlay menutupi area keyboard Android */
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ════════════════════════════════════════════════
    RESPONSIVE
 ════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  .page { padding: 16px; }
-  .topbar { padding: 0 16px; }
-  .topbar-title { font-size: var(--font-lg); }
-  .card-body { padding: 14px; }
-  .modal { border-radius: var(--radius-lg); }
+  .page {
+    padding: 14px 14px;
+    padding-bottom: calc(32px + env(safe-area-inset-bottom));
+  }
+  .topbar {
+    padding: 0 14px;
+    padding-top: env(safe-area-inset-top);
+  }
+  .topbar-title { font-size: var(--font-md); }
+  .topbar-sub { display: none; } /* Sembunyikan subtitle di mobile agar tidak crowded */
+  .card-body { padding: 12px; }
+  .modal {
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    /* Modal muncul dari bawah di mobile — lebih natural untuk Android */
+    max-height: 92dvh;
+    margin-top: auto;
+    margin-bottom: 0;
+    /* Padding bawah untuk navigation bar Android */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .modal-footer {
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  /* Form inputs cukup besar untuk diketik di Android */
+  .form-input,
+  .form-select,
+  .form-textarea {
+    padding: 11px 13px;
+    min-height: 46px;
+  }
+  /* Pills lebih mudah di-tap */
+  .pill {
+    padding: 7px 14px;
+    min-height: 36px;
+  }
+  /* Tombol lebih besar di mobile */
+  .btn:not(.btn-sm):not(.btn-icon) {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
 }
 
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr; }
   .filter-pills { gap: 5px; }
   .toolbar { gap: 8px; }
+  /* Kurangi padding halaman di HP kecil */
+  .page { padding: 12px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+  .topbar { padding: 0 12px; padding-top: env(safe-area-inset-top); }
+}
+
+/* Landscape mode Android: kurangi padding topbar */
+@media (max-height: 500px) and (orientation: landscape) {
+  .topbar { min-height: 48px; height: 48px; }
+  .page { padding-top: 10px; }
+  .sidebar { padding-top: env(safe-area-inset-top); }
 }

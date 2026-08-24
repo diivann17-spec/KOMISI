@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Menu } from 'lucide-react';
 import Sidebar from './components/Sidebar';
 import DarkModeToggle from './components/DarkModeToggle';
 import AbsensiPage from './pages/Absensi';
@@ -33,12 +34,15 @@ function ProtectedLayout() {
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const refreshUnread = () => setUnreadCount(notifikasiStorage.getUnread().length);
 
   useEffect(() => {
     seedMockData();
     refreshUnread();
+    // Tutup sidebar saat navigasi di mobile
+    setSidebarOpen(false);
   }, [location]);
 
   // Background alarm checker — runs every 60 seconds
@@ -160,12 +164,25 @@ function ProtectedLayout() {
 
   return (
     <div className="app-shell">
-      <Sidebar unreadCount={unreadCount} />
+      <Sidebar
+        unreadCount={unreadCount}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
       <div className="main">
         <header className="topbar">
-          <div>
-            <div className="topbar-title">{pageMeta.title}</div>
-            {pageMeta.sub && <div className="topbar-sub">{pageMeta.sub}</div>}
+          <div className="topbar-left">
+            <button
+              className="hamburger-btn"
+              onClick={() => setSidebarOpen(prev => !prev)}
+              aria-label="Toggle menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div>
+              <div className="topbar-title">{pageMeta.title}</div>
+              {pageMeta.sub && <div className="topbar-sub">{pageMeta.sub}</div>}
+            </div>
           </div>
           <div className="topbar-actions">
             <DarkModeToggle />
