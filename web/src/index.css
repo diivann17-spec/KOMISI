@@ -202,7 +202,7 @@ input, select, textarea {
 /* ──────────────────────────────────────────────
    RESPONSIVE SIDEBAR (mobile ≤ 768px)
 ────────────────────────────────────────────── */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .sidebar {
     width: min(86vw, 320px);
     position: fixed;
@@ -233,7 +233,7 @@ input, select, textarea {
 }
 
 /* Desktop ≥ 769px: sidebar selalu visible, hamburger tersembunyi */
-@media (min-width: 769px) {
+@media (min-width: 1025px) {
   .sidebar {
     transform: translateX(0) !important;
     position: relative;
@@ -1172,7 +1172,7 @@ tbody tr:hover td { background: var(--surface2); }
 /* ════════════════════════════════════════════════
    RESPONSIVE
 ════════════════════════════════════════════════ */
-@media (max-width: 768px) {
+@media (max-width: 1024px) {
   .page {
     padding: 14px 14px;
     padding-bottom: calc(32px + env(safe-area-inset-bottom));
