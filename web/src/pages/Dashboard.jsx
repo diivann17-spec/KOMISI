@@ -1,24 +1,23 @@
 import {
-  Archive,
-  ArrowUpRight,
-  Bell,
-  Calendar,
-  ChevronRight,
-  MapPin,
-  MessageSquare,
-  Sparkles,
-  Flag,
+    Archive,
+    ArrowUpRight,
+    Bell,
+    Calendar,
+    ChevronRight,
+    MapPin,
+    MessageSquare,
+    Sparkles
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DAFTAR_KOMISI, KOMISI_COLORS } from '../constants/theme';
+import { KOMISI_COLORS } from '../constants/theme';
 import {
-  absensiStorage,
-  arsipStorage,
-  jadwalStorage,
-  notifikasiStorage,
-  rapatStorage,
-  userStorage,
+    absensiStorage,
+    arsipStorage,
+    jadwalStorage,
+    notifikasiStorage,
+    rapatStorage,
+    userStorage,
 } from '../utils/storage';
 
 const ICON_COLORS = {
@@ -73,7 +72,7 @@ export default function Dashboard() {
     <div className="page" style={{ display: 'flex', flexDirection: 'column', gap: 20, minHeight: 0 }}>
 
       {/* ── Hero Banner ── */}
-      <div style={{
+      <div className="dashboard-hero" style={{
         background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 60%, #172554 100%)',
         borderRadius: 'var(--radius-xl)',
         padding: '28px 32px',
@@ -102,7 +101,7 @@ export default function Dashboard() {
           pointerEvents: 'none',
         }} />
 
-        <div style={{ flex: 1, minWidth: 260, position: 'relative', zIndex: 1 }}>
+        <div className="dashboard-hero-copy" style={{ flex: 1, minWidth: 260, position: 'relative', zIndex: 1 }}>
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '4px 12px', borderRadius: 99,
@@ -180,7 +179,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Content Grid ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
+      <div className="dashboard-content-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16 }}>
 
         {/* Agenda Hari Ini */}
         <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>

@@ -204,6 +204,7 @@ input, select, textarea {
 ────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .sidebar {
+    width: min(86vw, 320px);
     position: fixed;
     left: 0;
     top: 0;
@@ -1183,6 +1184,9 @@ tbody tr:hover td { background: var(--surface2); }
   .topbar-title { font-size: var(--font-md); }
   .topbar-sub { display: none; } /* Sembunyikan subtitle di mobile agar tidak crowded */
   .card-body { padding: 12px; }
+  .dashboard-content-grid { grid-template-columns: 1fr !important; }
+  .dashboard-hero { padding: 22px 18px !important; }
+  .dashboard-hero-copy { min-width: 0 !important; }
   .modal {
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     /* Modal muncul dari bawah di mobile — lebih natural untuk Android */
