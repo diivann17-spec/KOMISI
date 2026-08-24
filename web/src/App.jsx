@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, Bell } from 'lucide-react';
 import Sidebar from './components/Sidebar';
+import BottomNav from './components/BottomNav';
 import DarkModeToggle from './components/DarkModeToggle';
 import AbsensiPage from './pages/Absensi';
 import ArsipPage from './pages/Arsip';
@@ -32,6 +33,7 @@ function ProtectedLayout() {
   }
 
   const location = useLocation();
+  const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -140,23 +142,23 @@ function ProtectedLayout() {
 
   const getTitle = () => {
     switch (location.pathname) {
-      case '/': return { title: 'Dashboard Utama', sub: 'Ringkasan kegiatan & statistik Komisi DPRD' };
-      case '/jadwal': return { title: 'Jadwal Kegiatan Komisi', sub: 'Manajemen waktu & agenda Komisi I–IV' };
-      case '/arsip': return { title: 'Arsip Dokumen Digital', sub: 'Repositori surat masuk, keluar & berkas fisik' };
-      case '/absensi': return { title: 'Presensi & Absensi', sub: 'Rekapitulasi kehadiran anggota DPRD' };
-      case '/rapat': return { title: 'Modul Rapat & Notulen', sub: 'Catatan hasil rapat & risalah komisi' };
-      case '/notifikasi': return { title: 'Notifikasi', sub: 'Riwayat aktivitas & pemberitahuan' };
-      case '/menu': return { title: 'Pengaturan', sub: 'Pengaturan akun & aplikasi' };
-      case '/surat': return { title: 'Manajemen Surat', sub: 'Pengelolaan surat masuk, keluar & disposisi' };
-      case '/fasilitas': return { title: 'Ruangan & Fasilitas', sub: 'Peminjaman ruangan dan inventaris' };
-      case '/tamu': return { title: 'Tamu & Narasumber', sub: 'Manajemen undangan eksternal' };
-      case '/anggaran': return { title: 'Manajemen Anggaran', sub: 'Pemantauan alokasi dan realisasi biaya' };
-      case '/laporan': return { title: 'Laporan & Dashboard', sub: 'Statistik eksekutif dan export data' };
-      case '/pengingat': return { title: 'Pengingat & Alarm Otomatis', sub: 'Kelola alarm jadwal dan pengingat kegiatan DPRD' };
-      case '/pesan': return { title: 'Pesan Internal & Disposisi', sub: 'Komunikasi internal anggota DPRD dan sekretariat' };
-      case '/voting': return { title: 'Voting & Pengambilan Suara', sub: 'Sesi voting digital per agenda rapat dan sidang komisi' };
-      case '/legislasi': return { title: 'Produk Legislasi', sub: 'Tracking Perda, Raperda & Pansus — dari inisiasi hingga pengesahan' };
-      default: return { title: 'SIM Kegiatan DPRD', sub: '' };
+      case '/': return { title: 'Dashboard Utama', sub: 'Ringkasan kegiatan & statistik Komisi DPRD', category: 'Admin DPRD', page: 'Dashboard' };
+      case '/jadwal': return { title: 'Jadwal Kegiatan Komisi', sub: 'Manajemen waktu & agenda Komisi I–IV', category: 'Komisi DPRD', page: 'Jadwal' };
+      case '/arsip': return { title: 'Arsip Dokumen Digital', sub: 'Repositori surat masuk, keluar & berkas fisik', category: 'Dokumen', page: 'Arsip' };
+      case '/absensi': return { title: 'Presensi & Absensi', sub: 'Rekapitulasi kehadiran anggota DPRD', category: 'Kehadiran', page: 'Presensi' };
+      case '/rapat': return { title: 'Modul Rapat & Notulen', sub: 'Catatan hasil rapat & risalah komisi', category: 'Risalah', page: 'Rapat' };
+      case '/notifikasi': return { title: 'Notifikasi', sub: 'Riwayat aktivitas & pemberitahuan', category: 'Sistem', page: 'Notifikasi' };
+      case '/menu': return { title: 'Pengaturan', sub: 'Pengaturan akun & aplikasi', category: 'Pengaturan', page: 'Menu Akun' };
+      case '/surat': return { title: 'Manajemen Surat', sub: 'Pengelolaan surat masuk, keluar & disposisi', category: 'Sekretariat', page: 'Surat' };
+      case '/fasilitas': return { title: 'Ruangan & Fasilitas', sub: 'Peminjaman ruangan dan inventaris', category: 'Inventaris', page: 'Fasilitas' };
+      case '/tamu': return { title: 'Tamu & Narasumber', sub: 'Manajemen undangan eksternal', category: 'Eksternal', page: 'Tamu' };
+      case '/anggaran': return { title: 'Manajemen Anggaran', sub: 'Pemantauan alokasi dan realisasi biaya', category: 'Keuangan', page: 'Anggaran' };
+      case '/laporan': return { title: 'Laporan & Dashboard', sub: 'Statistik eksekutif dan export data', category: 'Statistik', page: 'Laporan' };
+      case '/pengingat': return { title: 'Pengingat & Alarm Otomatis', sub: 'Kelola alarm jadwal dan pengingat kegiatan DPRD', category: 'Alarm', page: 'Pengingat' };
+      case '/pesan': return { title: 'Pesan Internal & Disposisi', sub: 'Komunikasi internal anggota DPRD dan sekretariat', category: 'Komunikasi', page: 'Pesan' };
+      case '/voting': return { title: 'Voting & Pengambilan Suara', sub: 'Sesi voting digital per agenda rapat dan sidang komisi', category: 'Sidang', page: 'Voting' };
+      case '/legislasi': return { title: 'Produk Legislasi', sub: 'Tracking Perda, Raperda & Pansus — dari inisiasi hingga pengesahan', category: 'Hukum', page: 'Legislasi' };
+      default: return { title: 'SIM Kegiatan DPRD', sub: '', category: 'SIM DPRD', page: 'Halaman' };
     }
   };
 
@@ -173,6 +175,7 @@ function ProtectedLayout() {
         <header className="topbar">
           <div className="topbar-left">
             <button
+              type="button"
               className="hamburger-btn"
               onClick={() => setSidebarOpen(prev => !prev)}
               aria-label="Toggle menu"
@@ -186,8 +189,26 @@ function ProtectedLayout() {
           </div>
           <div className="topbar-actions">
             <DarkModeToggle />
+            <button
+              type="button"
+              className="btn-icon btn-ghost relative"
+              onClick={() => navigate('/notifikasi')}
+              title="Notifikasi"
+              style={{ position: 'relative' }}
+            >
+              <Bell size={18} />
+              {unreadCount > 0 && (
+                <span className="nav-badge" style={{ position: 'absolute', top: 2, right: 2, padding: '1px 5px', fontSize: 9 }}>
+                  {unreadCount}
+                </span>
+              )}
+            </button>
             <div className="flex items-center gap-3 pl-2 border-l border-slate-200 dark:border-slate-700">
-              <div className="w-8 h-8 rounded-lg bg-amber-400 text-slate-900 font-bold flex items-center justify-center text-sm shadow-sm">
+              <div
+                className="w-8 h-8 rounded-lg bg-amber-400 text-slate-900 font-bold flex items-center justify-center text-sm shadow-sm cursor-pointer"
+                onClick={() => navigate('/menu')}
+                title="Profil & Pengaturan"
+              >
                 {(user?.displayName || 'A').charAt(0).toUpperCase()}
               </div>
               <div className="hidden sm:block text-left">
@@ -197,6 +218,15 @@ function ProtectedLayout() {
             </div>
           </div>
         </header>
+
+        {/* Breadcrumb Trail */}
+        <div className="topbar-breadcrumb">
+          <span>🏠 Beranda</span>
+          <span>›</span>
+          <span>{pageMeta.category}</span>
+          <span>›</span>
+          <span className="current">{pageMeta.page}</span>
+        </div>
 
         {toast && (
           <div style={{
@@ -235,6 +265,9 @@ function ProtectedLayout() {
           <Route path="/voting" element={<VotingPage />} />
           <Route path="/legislasi" element={<LegislasiPage />} />
         </Routes>
+
+        {/* Mobile Bottom Navigation Bar */}
+        <BottomNav />
       </div>
     </div>
   );
