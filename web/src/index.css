@@ -428,7 +428,7 @@ input, select, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 22px;
+  padding: 0 16px;
   /* Padding atas untuk status bar Android (notch / punch-hole) */
   padding-top: env(safe-area-inset-top);
   /* Tambahkan tinggi sesuai safe area atas */
@@ -436,18 +436,35 @@ input, select, textarea {
   flex-shrink: 0;
   box-shadow: var(--shadow-sm);
   z-index: 40;
-  gap: 16px;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.topbar-title-wrap {
+  min-width: 0;
+  flex: 1;
 }
 
 .topbar-title {
-  font-size: var(--font-xl);
+  font-size: var(--font-lg);
   font-weight: 800;
   color: var(--text);
   letter-spacing: -0.25px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
+
 .topbar-sub {
   font-size: var(--font-xs);
   color: var(--text-3);
@@ -461,8 +478,57 @@ input, select, textarea {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-shrink: 0;
+}
+
+.topbar-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.topbar-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background-color: #F59E0B;
+  color: #0F172A;
+  font-weight: 800;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
+}
+
+.topbar-user-details {
+  display: none;
+  text-align: left;
+}
+
+.topbar-user-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.topbar-user-role {
+  font-size: 10px;
+  color: var(--text-4);
+  font-weight: 500;
+}
+
+@media (min-width: 768px) {
+  .topbar-user-details {
+    display: block;
+  }
 }
 
 /* ════════════════════════════════════════════════
@@ -523,8 +589,35 @@ input, select, textarea {
 .card-body { padding: 18px; }
 
 /* ════════════════════════════════════════════════
-   STAT CARDS
+   STAT CARDS & HERO WIDGETS
 ════════════════════════════════════════════════ */
+.dashboard-hero-agenda {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-lg);
+  padding: 16px 26px;
+  text-align: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.hero-agenda-count {
+  font-size: 34px;
+  font-weight: 900;
+  color: #FCD34D;
+  line-height: 1;
+}
+
+.hero-agenda-label {
+  font-size: 11.5px;
+  color: #E2E8F0;
+  margin-top: 6px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -532,7 +625,7 @@ input, select, textarea {
   margin-bottom: 20px;
 }
 @media (max-width: 1280px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 640px)  { .stats-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px)  { .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
 
 .stat-card {
   background: var(--surface);
@@ -1248,12 +1341,12 @@ tbody tr:hover td { background: var(--surface2); }
 }
 
 @media (max-width: 480px) {
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .filter-pills { gap: 5px; }
   .toolbar { gap: 8px; }
   /* Kurangi padding halaman di HP kecil */
-  .page { padding: 12px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
-  .topbar { padding: 0 12px; padding-top: env(safe-area-inset-top); }
+  .page { padding: 10px; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+  .topbar { padding: 0 10px; padding-top: env(safe-area-inset-top); }
 }
 
 /* Landscape mode Android: kurangi padding topbar */

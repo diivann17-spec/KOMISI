@@ -182,7 +182,7 @@ function ProtectedLayout() {
             >
               <Menu size={20} />
             </button>
-            <div>
+            <div className="topbar-title-wrap">
               <div className="topbar-title">{pageMeta.title}</div>
               {pageMeta.sub && <div className="topbar-sub">{pageMeta.sub}</div>}
             </div>
@@ -203,17 +203,17 @@ function ProtectedLayout() {
                 </span>
               )}
             </button>
-            <div className="flex items-center gap-3 pl-2 border-l border-slate-200 dark:border-slate-700">
-              <div
-                className="w-8 h-8 rounded-lg bg-amber-400 text-slate-900 font-bold flex items-center justify-center text-sm shadow-sm cursor-pointer"
-                onClick={() => navigate('/menu')}
-                title="Profil & Pengaturan"
-              >
+            <div
+              className="topbar-user-profile"
+              onClick={() => navigate('/menu')}
+              title="Profil & Pengaturan"
+            >
+              <div className="topbar-user-avatar">
                 {(user?.displayName || 'A').charAt(0).toUpperCase()}
               </div>
-              <div className="hidden sm:block text-left">
-                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">{user?.displayName || 'Admin'}</div>
-                <div className="text-[10px] text-slate-400">{user?.roleLabel || 'Sekretariat DPRD'}</div>
+              <div className="topbar-user-details">
+                <div className="topbar-user-name">{user?.displayName || 'Admin'}</div>
+                <div className="topbar-user-role">{user?.roleLabel || 'Sekretariat DPRD'}</div>
               </div>
             </div>
           </div>

@@ -124,21 +124,11 @@ export default function Dashboard() {
           </p>
         </div>
 
-        <div style={{
-          background: 'rgba(255,255,255,0.08)',
-          border: '1px solid rgba(255,255,255,0.15)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '16px 26px',
-          textAlign: 'center',
-          flexShrink: 0,
-          position: 'relative',
-          zIndex: 1,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.12)'
-        }}>
-          <div style={{ fontSize: 34, fontWeight: 900, color: '#FCD34D', lineHeight: 1 }}>
+        <div className="dashboard-hero-agenda">
+          <div className="hero-agenda-count">
             {todayAgenda.length}
           </div>
-          <div style={{ fontSize: 11.5, color: '#E2E8F0', marginTop: 6, fontWeight: 700, letterSpacing: 0.2 }}>
+          <div className="hero-agenda-label">
             Agenda Hari Ini
           </div>
         </div>
